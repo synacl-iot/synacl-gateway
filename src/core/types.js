@@ -178,6 +178,38 @@
  * @typedef {{ok: boolean, value?: number, error?: string}} WriteResult
  */
 
+/**
+ * The set of drivers a running gateway can use (src/drivers/index.js). Built-ins register
+ * first; packages listed in `config.drivers` load after them (a later driver for the same
+ * protocol wins, with a warning).
+ * @typedef {Object} DriverRegistry
+ * @property {() => string[]} protocols  Every protocol some driver serves — this becomes the
+ *   capability report's `protocols` list.
+ * @property {(protocol: string) => DriverInstance|null} forProtocol  null = unsupported protocol.
+ * @property {() => {modbusFormats?: boolean, sensorModels: Object}} capabilities  Merged driver capabilities.
+ * @property {() => Promise<void>} closeAll
+ *
+ * createDriverRegistry({config: FileConfig, home: string, log: Logger, clock: Clock, signal: AbortSignal,
+ *   builtins?: DriverDefinition[], extra?: DriverDefinition[]}) → Promise<DriverRegistry>
+ */
+
+// ─── CLI command modules (src/cli/<command>.js) ─────────────────────────────────────────
+
+/**
+ * Every subcommand module default-exports one function. main.js parses nothing but the
+ * subcommand name and hands the rest over, so each command owns its own flags and help.
+ * @typedef {Object} CliIO
+ * @property {NodeJS.WritableStream} stdout
+ * @property {NodeJS.WritableStream} stderr
+ * @property {NodeJS.ReadableStream} stdin
+ * @property {Object<string, string|undefined>} env
+ * @property {string} home  The resolved SYNACL_GATEWAY_HOME.
+ *
+ * @typedef {(argv: string[], io: CliIO) => Promise<number>} CliCommand  Resolves to the exit code:
+ *   0 ok · 1 runtime error · 2 usage/validation · 3 connect/auth · 4 conformance failure ·
+ *   5 doctor found problems · 6 another instance holds the lock.
+ */
+
 // ─── Readings and module contracts ──────────────────────────────────────────────────────
 
 /**
