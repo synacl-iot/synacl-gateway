@@ -59,6 +59,6 @@
     "systeminformation": "^5.31.7"
   },
   "devDependencies": {
-    "aedes": "^0.51.3"
+    "aedes": "^1.2.0"
   }
 }
