@@ -25,6 +25,9 @@
  *   `***` in EVERY line and field from now on. Credentials never reach stdout, files or the wire.
  * @property {(listener: (line: LogLine) => void) => () => void} tap  Subscribe to redacted lines
  *   (used by the live-log tail and the diagnostics ring); returns an unsubscribe function.
+ * @property {(level: LogLevel) => void} setLevel  Used by SIGHUP reload.
+ * @property {LogLevel} level
+ * @property {() => LogLine[]} recent  The last 100 lines (the diagnostics ring).
  *
  * @typedef {Object} LogLine
  * @property {number} ts
@@ -95,6 +98,8 @@
  * @property {{caFile: string|null, rejectUnauthorized: boolean}} tls
  * @property {string[]} drivers  Extra driver packages (npm names or absolute paths).
  * @property {string|null} driverDir  Where extra drivers are installed (default `$HOME/.synacl-gateway/drivers`).
+ * @property {Object<string, Object>} [driverOptions]  Per third-party driver options, keyed by driver
+ *   name (`ctx.options` for that driver). Built-ins read `host` / `bridge` below instead.
  * @property {number|null} configCap  Opt-in chunked config pull (bytes per MQTT message). null = off.
  * @property {number} minIntervalMs  Floor for every device interval (default 1000, never below 250).
  * @property {{maxBytes: number, maxAgeHours: number, batchIntervalMs: number}} backfill
@@ -225,49 +230,73 @@
  * no module imports another module's singleton — so tests and conformance can wire fakes.
  *
  *  topics.js        createTopics({tenant, gateway}) → { prefix,
- *                     up(name: string, deviceId?: string): string,          // name = topics.json id
+ *                     up(name: string, deviceId?: string): string,          // name = topics.json id (or without 'gateway.', or the suffix); throws on / + # in ids
  *                     subscriptions(): string[],                            // the 7 downlink filters
- *                     parseDown(topic: string): {kind: string, deviceId?: string} | null }
+ *                     parseDown(topic: string): {kind: string, deviceId?: string} | null }   // kind = topics.json id
  *  fnv.js           fnv1a32(bytes: Uint8Array|string): number               // uint32
  *  schemas.js       createValidators(protocolDir: string) →
  *                     { validate(schema: string, value: unknown): {ok: boolean, errors: string[]},
  *                       names(): string[] }                                  // plain Ajv: no removeAdditional/useDefaults
- *  state.js         openState({home, tenant, gateway, clock}) → { dir,
+ *  state.js         openState({home, tenant, gateway, clock?, log?}) → { dir, backfillDir,   // nothing is created before the first write or lock()
  *                     lock(): void, unlock(): void,                          // throws LockHeldError
+ *                     lockHolder(): {pid, startedAt, hostname, alive} | null,
+ *                     readConfigMeta(): Object | null,                       // read-only: never deletes (status/doctor read it concurrently)
  *                     readConfigRaw(): {bytes: Buffer, meta: Object} | null,
  *                     writeConfigRaw(bytes: Buffer, meta: Object): void,     // atomic
  *                     clearConfig(): void,
  *                     readOverrides(): Object, writeOverrides(o: Object): void,
- *                     readSeq(): Object, writeSeq(s: Object): void,
+ *                     readSeq(): Object, writeSeq(s: Object): void,         // raw counters; the scheduler adds the +1000
  *                     writeRuntime(r: Object): void, readRuntime(): Object | null }
- *  config-model.js  normalizeConfig(doc: Object, {overrides, minIntervalMs}) → {devices: DeviceSpec[], errors: string[]}
- *  config-sync.js   createConfigSync({transport, topics, state, clock, log, configCap, onApply}) →
+ *                   also exports LockHeldError (name 'LockHeldError', code 'ELOCKED', .holder), stateDirFor(home, tenant, gateway),
+ *                   isPidAlive(pid). runtime.json carries {state, updatedAt, pid, version, connected, configHash, configSynced, devices[], buffer}.
+ *  config-model.js  normalizeConfig(doc: Object, {overrides, minIntervalMs, receivedAt?}) → {devices: DeviceSpec[], errors: string[]}
+ *  config-sync.js   createConfigSync({transport, topics, state, clock, log, configCap, onApply, validators?, initialHash?, maxConfigBytes?, onSynced?}) →
  *                     { onConnected(): void, onDisconnected(): void,
  *                       onMessage(buf: Buffer): void,                        // config/push payloads only
- *                       requestNow(reason: string): void, currentHash(): number, synced(): boolean, stop(): void }
+ *                       requestNow(reason: string): void, currentHash(): number, synced(): boolean, idle(): Promise<void>, stop(): void }
  *                     onApply(bytes: Buffer, doc: Object, hash: number): Promise<void>
  *  publisher.js     createPublisher({transport, topics, validators, backfill, clock, log, strict}) →
- *                     { data(reading: Reading): Promise<'live'|'backfill'|'dropped'>,
- *                       deviceStatus(deviceId, {reachable, reason?}): Promise<void>,
- *                       alert(deviceId, alert: Object): Promise<void>,
- *                       ack(deviceId, ack: Object): Promise<void>,
- *                       gateway(name: string, body: Object, opts?: {qos?, retain?}): Promise<void> }  // status, firmware/response, config/request, debug/*, macro/run/status, data/backfill
- *  backfill.js      createBackfill({dir, clock, log, limits}) → { append(record): void, drainTick(send: (batch) => Promise<void>): Promise<number>,
+ *                     { data(reading: Reading, opts?: {intervalMs?, bypassBacklog?}): Promise<'live'|'backfill'|'dropped'>,
+ *                       deviceStatus(deviceId, {reachable, reason?}): Promise<boolean>,        // true = written
+ *                       alert(deviceId, alert: Object): Promise<boolean>,
+ *                       ack(deviceId, ack: Object): Promise<boolean>,
+ *                       gateway(name: string, body: Object, opts?: {qos?, retain?}): Promise<boolean>,  // status, firmware/response, config/request, debug/*, macro/run/status, data/backfill
+ *                       forget(deviceId): void, stats(): Object }
+ *                     QoS/retain default from topics.json; false = not connected or the write failed.
+ *  backfill.js      createBackfill({dir, clock, log, limits}) → { append(record): boolean, drainTick(send: (records[]) => Promise<void>): Promise<number>,   // caller wraps {batch}; cursor stays put if send rejects
  *                     stats(): {records, bytes, dropped, writeErrors}, close(): void }
- *  scheduler.js     createScheduler({clock, log, drivers, publisher, thresholds, state, minIntervalMs}) →
- *                     { apply(devices: DeviceSpec[]): Promise<void>, readOnce(deviceId, tag, correlationId): Promise<void>,
+ *  scheduler.js     createScheduler({clock, log, drivers, publisher, thresholds, state, minIntervalMs,
+ *                       onReachability?: (deviceId, {reachable, reason?}) => void, sim?}) →
+ *                     { apply(devices: DeviceSpec[]): Promise<void>, readOnce(deviceId, tag, correlationId|null): Promise<void>,
  *                       setInterval(deviceId, ms): void, pause(deviceId, mode, durationMs?): void, resume(deviceId): void,
- *                       write(deviceId, op: WriteOp): Promise<WriteResult>, snapshot(): Object[], stop(): Promise<void> }
- *  presence.js      createPresence({publisher, clock, getDevices, getHeartbeatExtras}) →
- *                     { start(): void, stop(): void, heartbeatNow(): Promise<void>, transition(deviceId, {reachable, reason?}): void }
- *  thresholds.js    createThresholds({publisher, clock}) → { evaluate(device: DeviceSpec, values, ts): void,
+ *                       write(deviceId, op: WriteOp): Promise<WriteResult>, snapshot(): DeviceSnapshot[], persistSeq(): void,
+ *                       stop(): Promise<void> }
+ *                     DeviceSnapshot = {id, protocol, intervalMs, lastDataTs, lastPollAt, reachable, reason, paused,
+ *                       pausedUntil, failures, inFlight, lastError, supported, seq}
+ *  presence.js      createPresence({publisher, clock, getDevices, getHeartbeatExtras, version, netInfo?, log}) →
+ *                     { start(): void, stop(): void, heartbeatNow(): Promise<void>, transition(deviceId, {reachable, reason?}): void,
+ *                       goodbye(): Promise<boolean> }                        // retained {"online":false} at QoS 1
+ *  thresholds.js    createThresholds({publisher, clock, log}) → { evaluate(device: DeviceSpec, values, ts): void,
  *                     resetDevice(deviceId): void, reconcile(prev: DeviceSpec[], next: DeviceSpec[]): void, flushQueued(): Promise<void> }
- *  capabilities.js  buildCapabilities({version, gatewayId, drivers, configCap}) → Object   // the firmware/response report
- *  commands.js      createCommands({scheduler, lifecycle, debug, capabilities, publisher, log}) → { onMessage(kind, deviceId, buf): Promise<void> }
+ *  capabilities.js  buildCapabilities({version, gatewayId, drivers, configCap, platform?, arch?}) → Object   // the firmware/response report
+ *  commands.js      createCommands({scheduler, lifecycle, debug, capabilities: Object|(() => Object), publisher, log, clock, validators}) →
+ *                     { onMessage(kind, deviceId, buf): Promise<void> }     // never throws; kind with or without the 'gateway.' prefix
  *                     lifecycle = { restart(): Promise<void>, resetConfig(): Promise<void>, setSim(on: boolean): void }
- *  debug.js         createDebug({publisher, log, clock, snapshot}) → { diag(correlationId): Promise<void>, startLogs(cats): void, stopLogs(): void }
- *  gateway.js       createGateway({config: FileConfig, home, transport?, clock?, drivers?, log?}) →
- *                     { start(): Promise<void>, stop(): Promise<void>, restart(): Promise<void>, status(): Object }
+ *  debug.js         createDebug({publisher, log, clock, snapshot, version, netInfo?, uptimeMs?, memory?}) →
+ *                     { diag(correlationId): Promise<void>, startLogs(cats): void, stopLogs(): void, stop(): void }
+ *  sim.js           createSim({clock}) → { active: boolean, start(): void, stop(): void, read(device, tags): ReadResult }
+ *  gateway.js       createGateway({config: FileConfig, home, transport?, clock?, drivers?, log?, random?, version?, factories?}) →   // factories: swap module factories in tests
+ *                     drivers: DriverDefinition[] | DriverRegistry | {builtins?, extra?}  (default: the built-ins + config.drivers)
+ *                     random: () => number in [0,1) — backoff jitter and stagger (conformance makes it deterministic)
+ *                     status() → {state, connected, configHash, configSynced, devices: DeviceSnapshot[], buffer: {records, bytes, dropped}}
+ *                     gw.state exposes the opened state (tests / conformance only)
+ *                     { start(): Promise<void>, stop(): Promise<void>, restart(): Promise<void>, status(): Object,
+ *                       reload(config?: FileConfig): Promise<'requested'|'restarted'> }   // SIGHUP: same identity → re-request config; changed → restart
+ *                   restart() reuses the config object it was given (run merges env overrides into it).
+ *  clock.js         realClock: Clock · probeSkew(apiUrl, {timeoutMs?, fetch?}) → Promise<number|null>   // ms, never throws
+ *  drivers/host.js  also exports HOST_METRICS, describeHostMetrics(), createHostSampler() (used by `synacl-gateway metrics`)
+ *  cli/*            shared helpers doctor reuses: init.verifyConnection, args.{loadFileConfig, parseCommandArgs, EXIT, UsageError},
+ *                   prompt.{promptHidden, promptLine}
  */
 
 export {};

@@ -1,0 +1,1 @@
+{"devices":[{"_id":"64b7a1000000000000000002","protocol":"rs485","conn":{"baudRate":9600,"modbusId":1},"tags":[{"name":"oil_temp","isIntervalRead":false,"thresholdStart":10,"thresholdEnd":80}]}],"success":true}
