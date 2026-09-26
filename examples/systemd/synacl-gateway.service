@@ -1,0 +1,32 @@
+# Reference unit: what "synacl-gateway service install" writes to /etc/systemd/system/synacl-gateway.service
+# for user pi with Node from the distribution (/usr/bin/node) and a global npm install.
+# Prefer generating your own (the paths must match your machine):
+#   synacl-gateway service print        # show it
+#   synacl-gateway service install      # install, enable and start it (asks for sudo)
+[Unit]
+Description=Synacl gateway
+Documentation=https://github.com/synacl-iot/synacl-gateway
+Wants=network-online.target time-sync.target
+After=network-online.target time-sync.target
+
+[Service]
+Type=simple
+User=pi
+Environment=SYNACL_GATEWAY_HOME=/home/pi/.synacl-gateway
+ExecStart=/usr/bin/node /usr/lib/node_modules/synacl-gateway/bin/synacl-gateway.js run --log-format json
+ExecReload=/bin/kill -HUP $MAINPID
+SyslogIdentifier=synacl-gateway
+Restart=always
+RestartSec=5
+TimeoutStopSec=20
+NoNewPrivileges=true
+RestrictSUIDSGID=true
+LockPersonality=true
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=/home/pi/.synacl-gateway
+PrivateTmp=true
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target
