@@ -57,6 +57,15 @@ test('walkPath: dot paths, numeric segments index arrays, missing → undefined'
   assert.equal(walkPath(doc, 's.0'), undefined, 'strings are not indexed');
 });
 
+test('walkPath: the bracket form is the same path', () => {
+  const doc = { list: [{ t: 1 }, { t: 2.5 }], grid: [[1, 2], [3, 4]] };
+  assert.equal(walkPath(doc, 'list[1].t'), 2.5);
+  assert.equal(walkPath(doc, 'grid[1][0]'), 3);
+  assert.equal(walkPath([{ a: 7 }], '[0].a'), 7);
+  assert.equal(walkPath(doc, 'list[9].t'), undefined);
+  assert.equal(walkPath({ a: { b: 1 } }, 'a[__proto__]'), undefined, 'only digits inside brackets are rewritten');
+});
+
 test('walkPath: prototype keys are never traversed', () => {
   const parsed = JSON.parse('{"__proto__":{"polluted":1},"a":{"constructor":{"prototype":7}}}');
   assert.equal(walkPath(parsed, '__proto__'), undefined);

@@ -1,6 +1,7 @@
 // Dot-notation JSON paths — the same notation the platform uses for `jsonPath` on HTTP
 // sources, so a path that works there works here: `ENERGY.Power`, `sensors.0.temp`
-// (a numeric segment indexes an array), no brackets, no escaping.
+// (a numeric segment indexes an array), no escaping. The bracket form `sensors[0].temp` is
+// accepted as a spelling of the same path, because people type it.
 //
 // Unlike a plain `obj?.[key]` walk, only OWN properties are followed and `__proto__`,
 // `constructor` and `prototype` are never traversed: payloads come from devices on the local
@@ -17,7 +18,8 @@ const BLOCKED = new Set(['__proto__', 'constructor', 'prototype']);
 export function walkPath(value, path) {
   if (typeof path !== 'string') return undefined;
   let cur = value;
-  for (const key of path.split('.')) {
+  const dotted = path.replace(/\[(\d+)\]/g, '.$1').replace(/^\./, '');
+  for (const key of dotted.split('.')) {
     if (BLOCKED.has(key)) return undefined;
     // Only objects and arrays are traversed: indexing into a string or number is never what a
     // path into device JSON means.
