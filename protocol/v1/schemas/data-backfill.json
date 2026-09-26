@@ -1,0 +1,68 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/data-backfill.json",
+  "title": "Buffered telemetry replay",
+  "description": "Telemetry a gateway buffered while its uplink was down, replayed in oldest-first batches on the GATEWAY-scoped topic `<prefix>/data/backfill`. The gateway's buffer is a single FIFO ring across all its devices, so one batch legitimately mixes devices and every record names its own `deviceId` — that is the only field a record adds over the live `data` schema, and ts/values/q/seq mean exactly what they mean there because the records feed the same telemetry store. Never replay on the live `data` topic: the live path rate-gates per device and would suspend a device replaying a backlog. Replayed records are stored only; they do not drive dashboards, rules or last-known values. The batch is capped at 40 records to bound parse cost (the reference firmware packs under 3,500 bytes). An over-long batch fails validation and the WHOLE message is dropped with a logged error — loud, not silently truncated. Unknown keys are silently stripped (Ajv `removeAdditional`), which is why every field is declared.",
+  "type": "object",
+  "required": [
+    "batch"
+  ],
+  "properties": {
+    "batch": {
+      "description": "1 to 40 records, oldest first.",
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 40,
+      "items": {
+        "type": "object",
+        "required": [
+          "deviceId",
+          "ts",
+          "values"
+        ],
+        "properties": {
+          "deviceId": {
+            "description": "The device the record belongs to — its 24-hex-character id.",
+            "type": "string",
+            "pattern": "^[0-9a-fA-F]{24}$"
+          },
+          "ts": {
+            "description": "When the values were read (epoch milliseconds) — the original read time, not the replay time.",
+            "type": "integer",
+            "minimum": 0
+          },
+          "values": {
+            "description": "Tag name -> value, as in the live `data` message.",
+            "type": "object",
+            "minProperties": 1,
+            "additionalProperties": {
+              "type": [
+                "number",
+                "boolean",
+                "string"
+              ]
+            }
+          },
+          "q": {
+            "description": "Data quality. Omitted means `good`.",
+            "type": "string",
+            "enum": [
+              "good",
+              "bad",
+              "uncertain",
+              "stale"
+            ],
+            "default": "good"
+          },
+          "seq": {
+            "description": "Optional per-device message counter, as in the live `data` message.",
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

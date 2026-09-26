@@ -1,0 +1,41 @@
+{
+  "correlationId": "b7e4c2a1-5d3f-4a9e-8c7b-6f5e4d3c2b1a",
+  "ts": 1758801600000,
+  "ip": "192.168.1.42",
+  "rssi": -61,
+  "uptimeMs": 86400000,
+  "freeHeap": 98304,
+  "minFreeHeap": 61440,
+  "maxAllocHeap": 65524,
+  "ble": {
+    "started": false,
+    "advTotal": 0,
+    "slotsSeen": 0,
+    "released": true
+  },
+  "fw": "1.5.4",
+  "mqttConnected": true,
+  "configHash": 3735928559,
+  "uplink": "wifi",
+  "devices": [
+    {
+      "id": "66f1a2b3c4d5e6f708192a3b",
+      "name": "Energy meter",
+      "protocol": "rs485",
+      "online": true,
+      "lastPollMs": 850
+    },
+    {
+      "id": "66f1a2b3c4d5e6f708192a3d",
+      "name": "Room climate",
+      "protocol": "i2c",
+      "online": false,
+      "lastPollMs": 30500,
+      "lastError": "i2c nack at 0x76"
+    }
+  ],
+  "recentLogs": [
+    "[net] MQTT connected",
+    "[modbus] read ok 66f1a2b3c4d5e6f708192a3b"
+  ]
+}

@@ -1,0 +1,51 @@
+{
+  "version": "1.5.4",
+  "schemaVersion": 2,
+  "board": "nodemcu-32s",
+  "mac": "123456789012345",
+  "debug": true,
+  "ethernet": true,
+  "buffering": true,
+  "modbusFormats": true,
+  "net": {
+    "mode": "auto",
+    "addr": "dhcp",
+    "ip": "",
+    "mask": "",
+    "gw": "",
+    "dns": ""
+  },
+  "protocols": [
+    "rs485",
+    "modbus-tcp",
+    "mqtt-direct",
+    "http",
+    "gpio-digital-in",
+    "gpio-digital-out",
+    "gpio-analog",
+    "gpio-pwm",
+    "gpio-stepper",
+    "gpio-servo",
+    "gpio-motor",
+    "i2c",
+    "spi",
+    "1-wire",
+    "uart",
+    "can",
+    "mbus",
+    "gps"
+  ],
+  "sensorModels": {
+    "i2c": [
+      "BME280",
+      "BMP280",
+      "SHT31",
+      "ADS1115",
+      "generic"
+    ],
+    "spi": [
+      "MAX31855",
+      "MAX6675"
+    ]
+  }
+}

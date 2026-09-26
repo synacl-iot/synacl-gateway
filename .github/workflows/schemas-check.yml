@@ -1,0 +1,63 @@
+# Weekly: is the vendored protocol/v1/ still identical (as parsed JSON) to the public mirror at
+# https://synacl.com/protocol/v1/? On drift, open or update one issue labelled protocol-drift.
+name: schemas-check
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '22'
+      - name: Compare with the mirror
+        id: check
+        run: |
+          set +e
+          node scripts/schemas-check.js > drift.txt
+          code=$?
+          set -e
+          cat drift.txt
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+      - name: Open or update the protocol-drift issue
+        if: steps.check.outputs.code == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          {
+            echo "The weekly check found that \`protocol/v1/\` differs from https://synacl.com/protocol/v1/ ([run]($RUN_URL))."
+            echo
+            echo '```'
+            cat drift.txt
+            echo '```'
+          } > body.md
+          gh label create protocol-drift --repo "$REPO" --color d93f0b \
+            --description 'Vendored protocol differs from synacl.com/protocol' 2>/dev/null || true
+          num=$(gh issue list --repo "$REPO" --label protocol-drift --state open --json number --jq '.[0].number // empty')
+          if [ -n "$num" ]; then
+            gh issue edit "$num" --repo "$REPO" --body-file body.md
+            gh issue comment "$num" --repo "$REPO" --body "Still drifting as of $RUN_URL"
+          else
+            gh issue create --repo "$REPO" --label protocol-drift \
+              --title 'protocol/v1 differs from synacl.com/protocol/v1' --body-file body.md
+          fi
+      - name: Fail on drift or when the mirror could not be read
+        if: steps.check.outputs.code != '0'
+        env:
+          CODE: ${{ steps.check.outputs.code }}
+        run: exit "$CODE"

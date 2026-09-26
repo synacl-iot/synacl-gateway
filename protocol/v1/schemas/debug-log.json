@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/debug-log.json",
+  "title": "Live log batch",
+  "description": "A batch of recent log lines, published on `<prefix>/debug/log` while a live log tail is active (between the `debug/logs/start` and `debug/logs/stop` gateway commands). Stream only the categories whose bit is set in the start command's `cats` mask, and stop on your own after a while so a forgotten tail cannot run up bandwidth. Relayed live, not persisted.",
+  "type": "object",
+  "required": [
+    "lines"
+  ],
+  "properties": {
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "seq": {
+      "description": "Batch counter, so a reader can spot a gap.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "lines": {
+      "description": "At most 50 lines of at most 512 characters each.",
+      "type": "array",
+      "maxItems": 50,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    }
+  },
+  "additionalProperties": false
+}

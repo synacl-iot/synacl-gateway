@@ -1,0 +1,32 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/macros-push.json",
+  "title": "Macro program set (cloud -> gateway)",
+  "description": "The COMPLETE set of enabled macro programs for this gateway, published on `<prefix>/macros/push` (QoS 1, not retained) when a macro is saved and again after every config/request, so it arrives on every boot and reconnect. Replace your whole set with it: a macro that is no longer listed must no longer run. An empty `macros` array is valid and clears the set. Each `program` is a compiled macro — the flat opcode program described by macro-program.json (https://synacl.com/protocol/v1/schemas/macro-program.json); validate it against that schema separately. A macro only runs when a `macros/run` names it. The backend refuses to publish a set larger than the gateway's one-packet capacity rather than letting it be dropped silently. The backend does not validate what it publishes — this schema documents it. New optional keys may be added within v1; ignore keys you do not use.",
+  "type": "object",
+  "required": [
+    "macros"
+  ],
+  "properties": {
+    "macros": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "macroId",
+          "program"
+        ],
+        "properties": {
+          "macroId": {
+            "description": "The macro's id (24 hex characters). `macros/run` and `macros/abort` refer to it.",
+            "type": "string"
+          },
+          "program": {
+            "description": "The compiled program: see macro-program.json.",
+            "type": "object"
+          }
+        }
+      }
+    }
+  }
+}

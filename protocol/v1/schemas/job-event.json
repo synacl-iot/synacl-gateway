@@ -1,0 +1,52 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/job-event.json",
+  "title": "Job boundary",
+  "description": "A job boundary the gateway owns — a limit switch (or any digital input) opening or closing a production run. GATEWAY-scoped (`<prefix>/job`): the switch is one input for the whole machine, and the payload names the job by the gateway's own counter rather than by a device. The input, debounce and bands come from the `job/config` gateway command.",
+  "type": "object",
+  "required": [
+    "event",
+    "ts",
+    "localJobId"
+  ],
+  "properties": {
+    "event": {
+      "description": "`start` opens a job, `end` closes it, `resume` re-announces a job that was already open when the gateway rebooted.",
+      "type": "string",
+      "enum": [
+        "start",
+        "end",
+        "resume"
+      ]
+    },
+    "ts": {
+      "description": "The moment of the EDGE, not of the publish (epoch milliseconds). The gateway stamps it when the input changes and may send it much later (offline, or on the next tick) — the job report needs when the work started, not when the message arrived.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "localJobId": {
+      "description": "The gateway's monotonic, persisted job counter and the IDEMPOTENCY KEY: a gateway that reboots mid-job must re-announce the SAME id, which is what stops a power blip opening a second job for a run that never stopped.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "signal": {
+      "description": "Which input drove it, for the audit trail.",
+      "type": "string",
+      "maxLength": 128
+    },
+    "seq": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "endTsUncertain": {
+      "description": "The job ended while the gateway was down: it knows the job ended but not when. Reported as a window (see lastKnownGoodTs) instead of an invented time.",
+      "type": "boolean"
+    },
+    "lastKnownGoodTs": {
+      "description": "With endTsUncertain: the last moment (epoch milliseconds) the gateway knew the job was still running.",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

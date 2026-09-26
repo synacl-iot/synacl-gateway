@@ -1,0 +1,47 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/data.json",
+  "title": "Device telemetry",
+  "description": "One reading of one device: a timestamp and a map of tag name to value. Published on `<prefix>/devices/{deviceId}/data` by a gateway, or on `tenants/{tenantId}/devices/{deviceId}/data` by a directly connected device. Also the body shape (after normalisation) of the HTTP webhook ingest, which validates with this same schema. The backend validates with Ajv `removeAdditional: true`: an undeclared top-level key is SILENTLY DROPPED, not rejected, so do not put anything here that is not declared below.",
+  "type": "object",
+  "required": [
+    "ts",
+    "values"
+  ],
+  "properties": {
+    "ts": {
+      "description": "When the values were read, in Unix epoch MILLISECONDS (not seconds). Stamped by the publisher at read time, not at publish time.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "values": {
+      "description": "Tag name -> value. The key is the tag's canonical stream key (for a Modbus tag its subtype, for a bus sensor its name). At least one entry.",
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": [
+          "number",
+          "boolean",
+          "string"
+        ]
+      }
+    },
+    "q": {
+      "description": "Data quality for the whole message. Omitted means `good`.",
+      "type": "string",
+      "enum": [
+        "good",
+        "bad",
+        "uncertain",
+        "stale"
+      ],
+      "default": "good"
+    },
+    "seq": {
+      "description": "Optional per-device message counter. Recorded as provenance on the events a message causes (Event.cause.seq), so the same seq under two trace ids reveals one message processed twice.",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

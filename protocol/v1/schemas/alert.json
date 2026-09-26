@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/alert.json",
+  "title": "Device alert",
+  "description": "An alert raised at the edge for one device (for example a threshold the gateway evaluated locally). Published on `<prefix>/devices/{deviceId}/alert` or `tenants/{tenantId}/devices/{deviceId}/alert`. Stored as an event and shown to the user; it does not change device presence.",
+  "type": "object",
+  "required": [
+    "ts",
+    "severity",
+    "code"
+  ],
+  "properties": {
+    "ts": {
+      "description": "When the condition was detected (epoch milliseconds).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "critical"
+      ]
+    },
+    "code": {
+      "description": "Short machine-readable reason, e.g. `THRESHOLD_VIOLATION`.",
+      "type": "string",
+      "maxLength": 64
+    },
+    "message": {
+      "description": "Human-readable text.",
+      "type": "string",
+      "maxLength": 512
+    },
+    "tag": {
+      "description": "Optional — the tag the alert is about, when it is tag-specific.",
+      "type": "string"
+    },
+    "value": {
+      "description": "Optional — the value that triggered it. Any JSON type."
+    }
+  },
+  "additionalProperties": false
+}

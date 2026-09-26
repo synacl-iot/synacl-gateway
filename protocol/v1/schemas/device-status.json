@@ -1,0 +1,27 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/device-status.json",
+  "title": "Device reachability",
+  "description": "Whether one device is reachable. A gateway publishes it on `<prefix>/devices/{deviceId}/status` for each device it polls; a directly connected device publishes it on `tenants/{tenantId}/devices/{deviceId}/status` (and should set it as its MQTT last will with `reachable:false`). Publish it retained. A gateway's child device is marked offline 90 s after it was last seen, so a gateway should republish `reachable:true` (or data) at least every ~30 s for each healthy device.",
+  "type": "object",
+  "required": [
+    "ts",
+    "reachable"
+  ],
+  "properties": {
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "reachable": {
+      "type": "boolean"
+    },
+    "reason": {
+      "description": "Why the device is unreachable, e.g. `timeout`, `crc`, `lwt`.",
+      "type": "string",
+      "maxLength": 128
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/macro-step.json",
+  "title": "Macro backend-step request",
+  "description": "Published on `<prefix>/macro/step` when a running macro reaches a CALL instruction: the gateway asks the backend to run backend step `stepId` of the macro — a saved action (webhook or MQTT publish) that only the cloud can perform, charged against the account's action quota. The gateway does not wait for an answer.",
+  "type": "object",
+  "required": [
+    "runId",
+    "macroId",
+    "stepId"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "macroId": {
+      "type": "string"
+    },
+    "stepId": {
+      "description": "The `stepId` operand of the CALL instruction.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

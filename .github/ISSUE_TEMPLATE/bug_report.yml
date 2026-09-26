@@ -1,0 +1,87 @@
+name: Bug report
+description: Something in synacl-gateway does not behave as documented.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for the report. Please check [docs/troubleshooting.md](https://github.com/synacl-iot/synacl-gateway/blob/main/docs/troubleshooting.md) first — many messages have a fix listed there.
+
+        Problems with your Synacl account, plan, devices or the app itself go to support@synacl.com, not this tracker. Security problems: see [SECURITY.md](https://github.com/synacl-iot/synacl-gateway/blob/main/SECURITY.md) — do not file them here.
+
+        **Remove secrets before pasting.** The broker password, local-broker passwords and your account password must not appear anywhere below.
+  - type: input
+    id: version
+    attributes:
+      label: synacl-gateway version
+      description: Output of `synacl-gateway --version` (or the image tag).
+      placeholder: 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: node
+    attributes:
+      label: Node.js version
+      description: Output of `node --version`. For Docker, write `docker` and the image tag.
+      placeholder: v22.14.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: OS and architecture
+      description: For example `Raspberry Pi OS Bookworm 64-bit (arm64)`, `Ubuntu 24.04 (amd64)`, `macOS 15 (arm64)`, `Windows 11`.
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: How it is run
+      options:
+        - npx (the quick-start line)
+        - npm install -g, in the foreground (synacl-gateway run)
+        - npm install -g, as a systemd service
+        - Docker / Compose
+        - from a git checkout
+        - other (say so below)
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead. Exact messages are more useful than paraphrases.
+    validations:
+      required: true
+  - type: textarea
+    id: status
+    attributes:
+      label: Output of `synacl-gateway status --json`
+      description: It contains no credentials, but check before pasting. Say "not applicable" if the problem is with `init` or the gateway never ran.
+      render: json
+  - type: textarea
+    id: doctor
+    attributes:
+      label: Output of `synacl-gateway doctor --skip-cloud`
+      description: Or the full `doctor` output after signing in, if the problem is what the platform sees. Remove nothing but secrets.
+      render: text
+  - type: textarea
+    id: logs
+    attributes:
+      label: Log lines
+      description: The relevant lines from `journalctl -u synacl-gateway`, `docker logs`, or the terminal — with `--log-level debug` if you can reproduce it. Passwords are already redacted as `***` by the gateway; check for anything else you do not want public.
+      render: text
+  - type: textarea
+    id: device
+    attributes:
+      label: Device settings (if a device is involved)
+      description: The protocol and the connection and tag settings, with any password removed. For Modbus TCP, the register address, type, format and word order; for a bridge, the topic and JSON path; for host metrics, the metric.
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed every password and token from the text above.
+          required: true
+        - label: I looked in docs/troubleshooting.md for this message.
+          required: true

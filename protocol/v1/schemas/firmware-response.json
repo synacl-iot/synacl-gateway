@@ -1,0 +1,107 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/firmware-response.json",
+  "title": "Firmware response: capability report or OTA progress",
+  "description": "`<prefix>/firmware/response` carries two distinct shapes, told apart by which fields are present. (1) The CAPABILITY REPORT — `version` plus `protocols`/`sensorModels` and the feature flags below — sent on every connect and in reply to a bare `firmware/request`. The platform stores it as the gateway's capability snapshot and REPLACES the previous one wholesale, and the app gates features on it: a protocol missing from `protocols` cannot be configured on this gateway, and a flag that is absent is indistinguishable from unsupported. (2) OTA PROGRESS — `status` (+ `correlationId`, `progress`, `error`) while applying a `firmware/request` update. Unknown keys are silently stripped (Ajv `removeAdditional`) before the handler runs, so a capability that is not declared here does not exist as far as the platform is concerned.",
+  "type": "object",
+  "properties": {
+    "correlationId": {
+      "description": "OTA progress: correlates with the update request.",
+      "type": "string"
+    },
+    "status": {
+      "description": "OTA progress. `installed` and `failed` are terminal and clear the gateway's busy state; `downloading` is progress only and stores no event.",
+      "type": "string",
+      "enum": [
+        "accepted",
+        "downloading",
+        "installed",
+        "failed"
+      ]
+    },
+    "progress": {
+      "description": "OTA progress percentage.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    },
+    "error": {
+      "description": "OTA failure reason.",
+      "type": "string",
+      "maxLength": 512
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "version": {
+      "description": "Capability report: the running firmware version (semver). Stored as the gateway's firmware version and compared against the OTA catalog.",
+      "type": "string"
+    },
+    "schemaVersion": {
+      "description": "Capability report: version of the capability-report shape itself.",
+      "type": "integer"
+    },
+    "board": {
+      "description": "Capability report: board identifier, e.g. `nodemcu-32s`.",
+      "type": "string"
+    },
+    "mac": {
+      "description": "Capability report: the chip id / MAC the gateway identifies itself by (the `{chipId}` in its topic prefix).",
+      "type": "string"
+    },
+    "protocols": {
+      "description": "Capability report: the device protocols this firmware can drive, e.g. `rs485`, `modbus-tcp`, `gpio-digital-in`, `i2c`, `ble`. The app refuses to attach a device of any other protocol to this gateway.",
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "sensorModels": {
+      "description": "Capability report: per-bus sensor models this firmware has drivers for, e.g. `{\"i2c\":[\"BME280\",\"generic\"],\"spi\":[\"MAX31855\"]}`.",
+      "type": "object"
+    },
+    "debug": {
+      "description": "Capability report: supports remote diagnostics — the `debug/diag` snapshot and the `debug/logs/start|stop` live log tail.",
+      "type": "boolean"
+    },
+    "ethernet": {
+      "description": "Capability report: has W5500 Ethernet support. Gates the network-configuration UI.",
+      "type": "boolean"
+    },
+    "net": {
+      "description": "Capability report: the Ethernet configuration the firmware is actually running, e.g. `{mode, addr, ip, mask, gw, dns}`.",
+      "type": "object"
+    },
+    "buffering": {
+      "description": "Capability report: has the store-and-forward buffer (replays on `data/backfill`, reports buffer health in the heartbeat). Gates the buffer UI.",
+      "type": "boolean"
+    },
+    "jobs": {
+      "description": "Capability report: can watch a digital input and open/close jobs from it (`job` topic, `job/config` command). Without it the app does not offer edge-owned jobs.",
+      "type": "boolean"
+    },
+    "modbusFormats": {
+      "description": "Capability report: decodes per-tag Modbus data formats (s16/u32/s32/f32 + word order) by reading two registers. Without it the platform refuses every non-u16 Modbus tag on this gateway.",
+      "type": "boolean"
+    },
+    "configChunked": {
+      "description": "Capability report: can reassemble a config/push delivered in base64 parts (see config-request `cap`/`part`).",
+      "type": "boolean"
+    },
+    "maxConfigBytes": {
+      "description": "Capability report: the TOTAL config size the unit can store and parse, computed on-device from free flash and heap. The platform's save-time size guard enforces it; absent means the legacy single 4096-byte packet limit.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1048576
+    },
+    "mqttPayloadBytes": {
+      "description": "Capability report: how many payload bytes fit in ONE MQTT packet on this unit. Decides whether a config is chunked and whether a macros/push or job/config fits at all.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 65535
+    }
+  },
+  "additionalProperties": false
+}

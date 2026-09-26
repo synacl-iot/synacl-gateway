@@ -1,0 +1,34 @@
+{
+  "batch": [
+    {
+      "deviceId": "66f1a2b3c4d5e6f708192a3b",
+      "ts": 1758801420000,
+      "values": {
+        "voltage": 230.9,
+        "current": 4.02
+      },
+      "q": "good",
+      "seq": 1001
+    },
+    {
+      "deviceId": "66f1a2b3c4d5e6f708192a3d",
+      "ts": 1758801425000,
+      "values": {
+        "temperature": 22.8,
+        "humidity": 51.2
+      },
+      "q": "good",
+      "seq": 388
+    },
+    {
+      "deviceId": "66f1a2b3c4d5e6f708192a3b",
+      "ts": 1758801480000,
+      "values": {
+        "voltage": 231.1,
+        "current": 4.05
+      },
+      "q": "good",
+      "seq": 1002
+    }
+  ]
+}

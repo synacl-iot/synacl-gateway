@@ -1,0 +1,17 @@
+# Only package.json, package-lock.json, bin/, src/, protocol/ and the legal/readme files go
+# into the image; everything else stays out of the build context.
+.git
+.github
+.gitignore
+.dockerignore
+Dockerfile
+node_modules
+coverage
+test
+docs
+examples
+scripts
+*.tgz
+.DS_Store
+.synacl-gateway
+*.log

@@ -1,0 +1,29 @@
+{
+  "name": "synacl-driver-example",
+  "version": "0.1.0",
+  "description": "Example synacl-gateway driver: publishes values from a JSON HTTP endpoint (protocol \"http\").",
+  "keywords": [
+    "synacl",
+    "synacl-driver",
+    "synacl-gateway"
+  ],
+  "license": "Apache-2.0",
+  "type": "module",
+  "main": "index.js",
+  "exports": "./index.js",
+  "files": [
+    "index.js"
+  ],
+  "engines": {
+    "node": ">=20.11"
+  },
+  "scripts": {
+    "test": "node --test test.js"
+  },
+  "peerDependencies": {
+    "synacl-gateway": ">=0.1.0-0 <1"
+  },
+  "devDependencies": {
+    "synacl-gateway": "file:../../.."
+  }
+}

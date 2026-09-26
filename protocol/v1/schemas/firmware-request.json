@@ -1,0 +1,21 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/firmware-request.json",
+  "title": "Firmware update request (cloud -> gateway)",
+  "description": "Published on `<prefix>/firmware/request` (QoS 1, not retained) when a user starts an over-the-air update. Download the named version from the OTA server (`GET {otaServer}/firmware/ota/{version}`, public, no token), report progress on `<prefix>/firmware/response` (`status`: accepted, downloading, installed, failed — see firmware-response), and after the reboot send a fresh capability report whose `version` is the new one. The backend holds the gateway busy (restart/reset refused) until a terminal status arrives or 5 minutes pass. The reference firmware also treats a request WITHOUT `type` as \"re-send your capability report\"; the backend does not currently send that form. The backend does not validate what it publishes — this schema documents it. New optional keys may be added within v1; ignore keys you do not use.",
+  "type": "object",
+  "required": [
+    "type",
+    "version"
+  ],
+  "properties": {
+    "type": {
+      "const": "update"
+    },
+    "version": {
+      "description": "The firmware version to install (semver, e.g. `1.5.4`). It may be OLDER than the running one: a user can deliberately roll back.",
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

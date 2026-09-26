@@ -1,0 +1,7 @@
+{
+  "event": "start",
+  "ts": 1758801600000,
+  "localJobId": 57,
+  "signal": "door_switch",
+  "seq": 3
+}

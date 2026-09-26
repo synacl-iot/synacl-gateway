@@ -1,0 +1,50 @@
+name: Feature request
+description: Propose a driver, a command, an option or a behaviour change.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Changes to what the gateway says on the wire are platform changes first: the protocol lives at [synacl.com/protocol](https://synacl.com/protocol/), and this repository follows it. Everything else — drivers, CLI, service, Docker, docs — can be proposed here.
+
+        Proposing a driver? Most drivers are best published as their own package (`synacl-driver-<protocol>`); see [CONTRIBUTING.md](https://github.com/synacl-iot/synacl-gateway/blob/main/CONTRIBUTING.md#proposing-a-driver) for when one belongs in this repository, and fill in the equipment questions below.
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - a new driver
+        - an existing driver (host, mqtt-bridge, modbus-tcp)
+        - the driver API or test harness
+        - the CLI (init, run, status, metrics, doctor, conformance)
+        - service / systemd
+        - Docker
+        - documentation
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What you are trying to do and what stops you today. A concrete setup (the machine, the equipment, the network) helps more than a general wish.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: The proposal
+      description: What you would like the gateway to do, as specifically as you can. For a driver — the equipment, the protocol name the Synacl app uses, the device and tag settings, and what "reachable" should mean for it.
+    validations:
+      required: true
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you considered
+      description: Including whether a third-party driver or a `config.json` setting would do.
+  - type: checkboxes
+    id: willing
+    attributes:
+      label: Contribution
+      options:
+        - label: I am willing to work on this with some guidance.

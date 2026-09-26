@@ -1,0 +1,42 @@
+{
+  "v": 1,
+  "name": "Pulse pump",
+  "params": [
+    {
+      "name": "ms",
+      "default": 2000,
+      "min": 100,
+      "max": 10000
+    }
+  ],
+  "vars": [
+    "ms"
+  ],
+  "instructions": [
+    {
+      "op": "DWRITE",
+      "dev": "66f1a2b3c4d5e6f708192a3c",
+      "value": {
+        "lit": 1
+      }
+    },
+    {
+      "op": "WAIT",
+      "ms": {
+        "var": "ms"
+      }
+    },
+    {
+      "op": "DWRITE",
+      "dev": "66f1a2b3c4d5e6f708192a3c",
+      "value": {
+        "lit": 0
+      }
+    },
+    {
+      "op": "EMIT",
+      "message": "pump pulsed",
+      "severity": "info"
+    }
+  ]
+}

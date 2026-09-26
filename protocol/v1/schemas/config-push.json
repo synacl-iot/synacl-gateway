@@ -1,0 +1,278 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/config-push.json",
+  "title": "Configuration push (cloud -> gateway)",
+  "description": "The backend's answer to config/request, published on `<prefix>/config/push` (QoS 1, not retained). Exactly one of three shapes. (1) FULL: the authoritative list of devices the gateway must poll — `{devices, success:true, net?}`. Replace your whole device set with it (a device that is no longer listed must stop being polled; an unknown gateway gets `devices: []` so it can drop a stale cache). The reference firmware stores it and reboots whenever its FNV-1a 32-bit hash (seed 0x811c9dc5, prime 0x01000193) over the RAW UTF-8 bytes of the message changes, which is why the backend emits a deterministic payload: devices sorted by id, tag keys in a fixed order, keys equal to the firmware default omitted, and `net` — when present — always the LAST top-level key. Hash the bytes you received, not a re-serialisation. (2) UNCHANGED: `{\"unchanged\":true}` when the request's `hash` already matches — keep running what you have. (3) CHUNK: `{p, n, h, d}`, one base64 part of a FULL payload too large for one MQTT packet; sent only to a gateway whose request carried `cap`. Decode each `d` and append in `p` order; after part `n-1` the reassembled bytes must hash to `h`. Ask for the next part with config/request `{hash, cap, part: p+1}`. The same request also makes the backend re-send macros/push and the job/config command, so those arrive on every boot and reconnect too. The backend does not validate what it publishes — this schema documents it. Validate with a plain draft-07 validator (do not use Ajv's `removeAdditional` with `oneOf`: it mutates the data while trying branches). New optional keys may be added within v1; ignore keys you do not use.",
+  "oneOf": [
+    {
+      "$ref": "#/definitions/full"
+    },
+    {
+      "$ref": "#/definitions/unchanged"
+    },
+    {
+      "$ref": "#/definitions/chunk"
+    }
+  ],
+  "definitions": {
+    "full": {
+      "title": "Full configuration",
+      "type": "object",
+      "required": [
+        "devices",
+        "success"
+      ],
+      "properties": {
+        "devices": {
+          "description": "Every active device attached to this gateway, sorted by `_id`. Directly connected (`mqtt-direct`) devices are never included.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/device"
+          }
+        },
+        "success": {
+          "type": "boolean",
+          "const": true
+        },
+        "net": {
+          "$ref": "#/definitions/net"
+        }
+      }
+    },
+    "device": {
+      "title": "Device",
+      "type": "object",
+      "required": [
+        "_id",
+        "protocol",
+        "conn",
+        "tags"
+      ],
+      "properties": {
+        "_id": {
+          "description": "The device id (24 hex characters). Use it as the `{deviceId}` in this device's data/status/alert/cmd topics.",
+          "type": "string",
+          "pattern": "^[0-9a-fA-F]{24}$"
+        },
+        "protocol": {
+          "description": "How to reach the device, e.g. `rs485`, `modbus-tcp`, `http`, `gpio-digital-in`, `gpio-digital-out`, `gpio-analog`, `gpio-pwm`, `gpio-servo`, `gpio-stepper`, `gpio-motor`, `i2c`, `spi`, `1-wire`, `uart`, `can`, `mbus`, `gps`, `ble`, and for software gateways `host` and `mqtt-bridge`. A gateway should only be given protocols it listed in its capability report.",
+          "type": "string"
+        },
+        "conn": {
+          "description": "Protocol-specific connection settings, passed through verbatim from the device record (e.g. `rs485`: `{modbusId, baudRate, dataBits, stopBits, parity, tickDuration}`; `modbus-tcp`: `{modbusId, ip, port, tickDuration}`; `gpio-digital-in`: `{pinNumber, activeHigh, pullMode, sampleIntervalMs}`; `i2c`: `{sdaPin, sclPin, clockHz, sampleIntervalMs}`). `tickDuration` / `sampleIntervalMs` is how often to publish a data message. Read the keys your protocol needs and ignore the rest.",
+          "type": "object"
+        },
+        "tags": {
+          "description": "The values to read from (or write to) the device.",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/tag"
+          }
+        }
+      }
+    },
+    "tag": {
+      "title": "Tag",
+      "description": "One point on a device. The backend emits ONLY the keys below, in this order, and omits a key whose value equals the firmware default given in its description — so an absent key MEANS that default. Note the defaults that are not zero: `isIntervalRead` true, `gpioPin` -1, `readBytes` 2, `bigEndian` true.",
+      "type": "object",
+      "required": [
+        "name"
+      ],
+      "properties": {
+        "name": {
+          "description": "The tag's key in the `values` map of the data message you publish. Always present.",
+          "type": "string"
+        },
+        "mbAddress": {
+          "description": "Modbus register/coil address. Default 0.",
+          "type": "integer"
+        },
+        "registerType": {
+          "description": "Modbus table: `holding`, `input`, `coil` or `discrete`. Default `holding`.",
+          "type": "string"
+        },
+        "mbFormat": {
+          "description": "Modbus value format. 32-bit formats read TWO consecutive registers. Default `u16`.",
+          "type": "string",
+          "enum": [
+            "u16",
+            "s16",
+            "u32",
+            "s32",
+            "f32"
+          ]
+        },
+        "mbWordOrder": {
+          "description": "32-bit formats only: `big` = high word at the lower address (ABCD), `little` = low word first. Default `big`.",
+          "type": "string",
+          "enum": [
+            "big",
+            "little"
+          ]
+        },
+        "isIntervalRead": {
+          "description": "Read on every poll interval. false = read only on demand (the `read/once` device command). Default TRUE.",
+          "type": "boolean"
+        },
+        "scaleFactor": {
+          "description": "Engineering value = raw x scaleFactor + offset. Default 1.",
+          "type": "number"
+        },
+        "offset": {
+          "description": "Added after scaleFactor. Default 0.",
+          "type": "number"
+        },
+        "thresholdStart": {
+          "description": "Edge alarm band, in engineering units: raise an alert when the value is below thresholdStart OR above thresholdEnd. [0, 0] means no threshold. Default 0.",
+          "type": "number"
+        },
+        "thresholdEnd": {
+          "description": "See thresholdStart. Default 0.",
+          "type": "number"
+        },
+        "i2cAddress": {
+          "description": "I2C bus address (e.g. 118 = 0x76). Default 0.",
+          "type": "integer"
+        },
+        "sensorModel": {
+          "description": "Driver to use on a bus protocol, e.g. `BME280`, `SHT31`, `ADS1115`, `MAX31855`, `generic`. Default empty.",
+          "type": "string"
+        },
+        "gpioPin": {
+          "description": "GPIO pin number. Default -1 (NOT 0 — pin 0 is a real pin).",
+          "type": "integer"
+        },
+        "canId": {
+          "description": "CAN message id (11-bit or 29-bit). Default 0.",
+          "type": "integer"
+        },
+        "mbusRecord": {
+          "description": "M-Bus data record index in the device response. Default 0.",
+          "type": "integer"
+        },
+        "jsonPath": {
+          "description": "Dot-notation path into a JSON response (http sources). Default empty.",
+          "type": "string"
+        },
+        "bleField": {
+          "description": "BLE only: the canonical decoded field key (see ble-discovery `fields`). Default empty.",
+          "type": "string"
+        },
+        "metric": {
+          "description": "`host` protocol (software gateways) only: which metric of the machine the gateway runs on, e.g. `cpu.temp`, `load.1m`, `mem.used_pct`. Lowercase letters, digits, `_` and `.`, at most 64. Default empty.",
+          "type": "string"
+        },
+        "topic": {
+          "description": "`mqtt-bridge` protocol (software gateways) only: the subscription filter on the customer's LOCAL broker whose messages feed this tag (`+` and `#` allowed); combine with `jsonPath`. Default empty.",
+          "type": "string"
+        },
+        "cmdTopic": {
+          "description": "`mqtt-bridge` only: the publish topic for writes to this tag (reserved). Default empty.",
+          "type": "string"
+        },
+        "initByte": {
+          "description": "Generic I2C only (sensorModel `generic`): byte written at init; 0 = skip. Default 0.",
+          "type": "integer"
+        },
+        "readBytes": {
+          "description": "Generic I2C only: bytes to read per poll. Default 2.",
+          "type": "integer"
+        },
+        "bigEndian": {
+          "description": "Generic I2C only: byte order of multi-byte reads. Default TRUE.",
+          "type": "boolean"
+        }
+      }
+    },
+    "net": {
+      "title": "Ethernet settings",
+      "description": "W5500 Ethernet configuration. OMITTED ENTIRELY when it is the default (auto + DHCP) — so a default gateway's payload hash never changed when this block was introduced. When present all six keys are sent, in this order, as the LAST top-level key.",
+      "type": "object",
+      "required": [
+        "ethMode",
+        "ethAddr",
+        "ethIp",
+        "ethMask",
+        "ethGw",
+        "ethDns"
+      ],
+      "properties": {
+        "ethMode": {
+          "description": "`auto` = use Ethernet as the uplink when a link is present; `uplink` = force Ethernet as the internet path; `lan` = keep Wi-Fi as uplink and use Ethernet only to reach a local segment (e.g. a PLC); `off` = never probe the Ethernet chip.",
+          "type": "string",
+          "enum": [
+            "auto",
+            "uplink",
+            "lan",
+            "off"
+          ]
+        },
+        "ethAddr": {
+          "type": "string",
+          "enum": [
+            "dhcp",
+            "static"
+          ]
+        },
+        "ethIp": {
+          "description": "Static address; empty string with DHCP.",
+          "type": "string"
+        },
+        "ethMask": {
+          "type": "string"
+        },
+        "ethGw": {
+          "type": "string"
+        },
+        "ethDns": {
+          "type": "string"
+        }
+      }
+    },
+    "unchanged": {
+      "title": "Unchanged",
+      "type": "object",
+      "required": [
+        "unchanged"
+      ],
+      "properties": {
+        "unchanged": {
+          "type": "boolean",
+          "const": true
+        }
+      }
+    },
+    "chunk": {
+      "title": "Chunk of a large configuration",
+      "type": "object",
+      "required": [
+        "p",
+        "n",
+        "h",
+        "d"
+      ],
+      "properties": {
+        "p": {
+          "description": "This part's index, 0-based.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "n": {
+          "description": "Total number of parts.",
+          "type": "integer",
+          "minimum": 1
+        },
+        "h": {
+          "description": "FNV-1a 32-bit hash of the COMPLETE reassembled payload — verify it before applying, and send it as `hash` in later config requests.",
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 4294967295
+        },
+        "d": {
+          "description": "Base64 slice of the payload's UTF-8 bytes. Each slice is a whole number of 4-character base64 quanta, so it decodes on its own.",
+          "type": "string"
+        }
+      }
+    }
+  }
+}

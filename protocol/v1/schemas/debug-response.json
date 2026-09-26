@@ -1,0 +1,141 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/debug-response.json",
+  "title": "Diagnostics snapshot",
+  "description": "The one-shot diagnostics snapshot a gateway publishes on `<prefix>/debug/response` in reply to the `debug/diag` gateway command. Echo the command's `correlationId`: the app matches the reply to the request by it. Relayed live to the user's debug panel and not persisted. Bounded (arrays capped, strings limited) so a misbehaving firmware cannot flood the relay.",
+  "type": "object",
+  "required": [
+    "correlationId"
+  ],
+  "properties": {
+    "correlationId": {
+      "description": "Copied from the `debug/diag` command.",
+      "type": "string",
+      "maxLength": 64
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "ip": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "rssi": {
+      "description": "Wi-Fi signal strength in dBm.",
+      "type": "integer"
+    },
+    "uptimeMs": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "freeHeap": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "minFreeHeap": {
+      "description": "Heap low-water mark since boot.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "maxAllocHeap": {
+      "description": "Largest allocatable heap block. On an ESP32 it must stay well above the ~40 KB a TLS handshake needs.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "ble": {
+      "description": "Bluetooth scanner state.",
+      "type": "object",
+      "properties": {
+        "started": {
+          "type": "boolean"
+        },
+        "advTotal": {
+          "description": "Advertisements seen since boot.",
+          "type": "integer",
+          "minimum": 0
+        },
+        "slotsSeen": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "released": {
+          "description": "true = the Bluetooth controller memory was handed back at boot (no BLE device configured).",
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    },
+    "fw": {
+      "description": "Firmware version.",
+      "type": "string",
+      "maxLength": 32
+    },
+    "mqttConnected": {
+      "type": "boolean"
+    },
+    "configHash": {
+      "description": "FNV-1a 32-bit hash of the config the gateway is running (see config-request `hash`).",
+      "type": "integer"
+    },
+    "uplink": {
+      "description": "Which interface carries the internet connection right now. Relayed, not persisted.",
+      "type": "string",
+      "enum": [
+        "wifi",
+        "ethernet",
+        "cellular"
+      ]
+    },
+    "ethIp": {
+      "type": "string",
+      "maxLength": 64
+    },
+    "devices": {
+      "description": "Per-device poll state, at most 200 entries.",
+      "type": "array",
+      "maxItems": 200,
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "description": "Device id.",
+            "type": "string",
+            "maxLength": 64
+          },
+          "name": {
+            "type": "string",
+            "maxLength": 128
+          },
+          "protocol": {
+            "type": "string",
+            "maxLength": 32
+          },
+          "online": {
+            "type": "boolean"
+          },
+          "lastPollMs": {
+            "description": "Milliseconds since the last poll.",
+            "type": "integer"
+          },
+          "lastError": {
+            "type": "string",
+            "maxLength": 256
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "recentLogs": {
+      "description": "The most recent log lines, at most 100.",
+      "type": "array",
+      "maxItems": 100,
+      "items": {
+        "type": "string",
+        "maxLength": 512
+      }
+    }
+  },
+  "additionalProperties": false
+}

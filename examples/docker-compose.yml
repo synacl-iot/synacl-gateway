@@ -1,0 +1,47 @@
+# synacl-gateway with Docker Compose.
+#
+# 1. Save the settings once. Paste the values from Gateways → Connection Info in the Synacl app
+#    (a leading space keeps the password out of most shells' history):
+#
+#      docker compose run --rm gateway init --broker mqtts://mqtt.synacl.com:8883 \
+#        --tenant <account id> --gateway <gateway id> --user <username> --pass <password>
+#
+#    init writes /data/config.json in the volume and checks the credentials against the broker.
+#
+# 2. Start it:            docker compose up -d
+#    Logs:                docker compose logs -f gateway
+#    Status:              docker compose exec gateway synacl-gateway status
+#    Host metrics:        docker compose exec gateway synacl-gateway metrics
+#
+# After running init again (e.g. with a new password): docker compose restart gateway
+
+services:
+  gateway:
+    image: ghcr.io/synacl-iot/synacl-gateway:latest   # or pin a release, e.g. :0.1
+    restart: unless-stopped
+    init: true            # a tiny PID 1 that forwards SIGTERM, so shutdown publishes online:false
+    stop_grace_period: 20s
+    volumes:
+      - synacl-data:/data
+    # Host metrics read the container's view of the machine: CPU, memory and uptime are the
+    # host's; disk.used_pct is the /data volume; net.rx_bps/net.tx_bps are the container's own
+    # interface. For the machine's real network counters (and to reach LAN devices exactly as
+    # the host does), use the host network instead:
+    # network_mode: host
+    #
+    # Instead of `init`, the identity can come from the environment — useful with secrets:
+    # environment:
+    #   SYNACL_BROKER: mqtts://mqtt.synacl.com:8883
+    #   SYNACL_TENANT: "<account id>"
+    #   SYNACL_GATEWAY: "<gateway id>"
+    #   SYNACL_USER: "<username>"
+    #   SYNACL_PASS_FILE: /run/secrets/synacl_pass
+    # secrets:
+    #   - synacl_pass
+
+volumes:
+  synacl-data:
+
+# secrets:
+#   synacl_pass:
+#     file: ./synacl_pass.txt     # the password on one line; chmod 600

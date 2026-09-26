@@ -1,0 +1,67 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/image-meta.json",
+  "title": "Event image header (experimental)",
+  "description": "EXPERIMENTAL — may change without a version bump. A fog node relaying an event-triggered camera frame publishes this header on `<prefix>/devices/{deviceId}/image/meta` first, then `chunks` ordered image-chunk messages under the same `imageId`. Bounded so a misbehaving node cannot exhaust memory: at most 1024 chunks (about 1.5 MB of image at 2048 base64 characters per chunk).",
+  "type": "object",
+  "required": [
+    "imageId",
+    "chunks"
+  ],
+  "properties": {
+    "imageId": {
+      "description": "Unique per image; every chunk repeats it.",
+      "type": "string",
+      "maxLength": 96
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "trigger": {
+      "description": "What caused the capture.",
+      "type": "string",
+      "maxLength": 64
+    },
+    "samples": {
+      "description": "Sensor readings around the trigger, at most 16.",
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "number"
+      }
+    },
+    "format": {
+      "type": "string",
+      "enum": [
+        "jpeg",
+        "jpg",
+        "png"
+      ]
+    },
+    "width": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "height": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 10000
+    },
+    "size": {
+      "description": "Decoded image size in bytes, at most 8 MiB.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 8388608
+    },
+    "chunks": {
+      "description": "How many image-chunk messages follow (1-1024).",
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 1024
+    }
+  },
+  "additionalProperties": false
+}

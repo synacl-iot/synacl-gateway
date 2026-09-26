@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "broker": "mqtts://mqtt.synacl.com:8883",
+  "tenant": "0123456789abcdef01234567",
+  "gateway": "my-gateway-01",
+  "username": "123456",
+  "password": "ReplaceWithYourPassword0",
+  "api": "https://api.synacl.com",
+  "tls": {
+    "caFile": null,
+    "rejectUnauthorized": true
+  },
+  "drivers": [],
+  "driverDir": null,
+  "configCap": null,
+  "minIntervalMs": 1000,
+  "backfill": {
+    "maxBytes": 67108864,
+    "maxAgeHours": 168,
+    "batchIntervalMs": 1000
+  },
+  "host": {
+    "diskPath": "/"
+  },
+  "bridge": {
+    "rejectUnauthorized": true
+  },
+  "log": {
+    "level": "info",
+    "format": "auto"
+  },
+  "createdAt": "2026-09-26T00:00:00.000Z"
+}
