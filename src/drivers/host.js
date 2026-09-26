@@ -61,19 +61,55 @@ function fsFor(list, path) {
  * A reusable sampler. Stateful on purpose: CPU load and network rates are deltas since the
  * previous sample, so keep one sampler per consumer and call `prime()` once before the first
  * `sample()`.
- * @param {{si?: any, os?: any, diskPath?: string, now?: () => number}} [deps]  `diskPath` defaults to
- *   the root filesystem (`/`, or `C:` on Windows); `now` is the clock used for the network warm-up.
+ * Every systeminformation call gets `slowMs` to answer. A slower one (typical on Windows, where
+ * several calls go through WMI/PowerShell and can take 10 s or more) does not hold up the
+ * sample: it keeps running, its answer is cached, and the sample uses the last answer if it is at
+ * most `maxStaleMs` old — otherwise that metric is left out for now (transient), never sent as 0.
+ * @param {{si?: any, os?: any, diskPath?: string, now?: () => number, slowMs?: number, maxStaleMs?: number}} [deps]
+ *   `diskPath` defaults to the root filesystem (`/`, or `C:` on Windows); `now` is the clock used
+ *   for the network warm-up and the cache age.
  */
-export function createHostSampler({ si = defaultSi, os = defaultOs, diskPath, now = Date.now } = {}) {
+export function createHostSampler({ si = defaultSi, os = defaultOs, diskPath, now = Date.now, slowMs = 2500, maxStaleMs = 120_000 } = {}) {
   diskPath ||= defaultDiskPath(os);
+
+  // One in-flight call and one last answer per systeminformation call.
+  const calls = new Map();
+  const SLOW = Symbol('slow');
+  async function guarded(name, fn) {
+    let c = calls.get(name);
+    if (!c) calls.set(name, (c = { inflight: null, at: 0, value: undefined }));
+    if (!c.inflight) {
+      // Started synchronously (like calling si directly would be); only the wait is bounded.
+      c.inflight = (async () => {
+        const value = await fn();
+        c.value = value;
+        c.at = now();
+        return value;
+      })().finally(() => { c.inflight = null; });
+      c.inflight.catch(() => {}); // an answer nobody waits for must not become an unhandled rejection
+    }
+    let timer;
+    const outcome = await Promise.race([
+      c.inflight.then((value) => ({ value }), (error) => ({ error })),
+      new Promise((resolve) => { timer = setTimeout(() => resolve(SLOW), slowMs); }),
+    ]).finally(() => clearTimeout(timer));
+    if (outcome !== SLOW) {
+      if ('error' in outcome) throw outcome.error;
+      return outcome.value;
+    }
+    if (c.at && now() - c.at <= maxStaleMs) return c.value;
+    const err = new Error(`still being read — this system answers slowly (over ${slowMs} ms)`);
+    err.transient = true;
+    throw err;
+  }
   let iface; // default network interface, resolved lazily and re-resolved if it disappears
   let firstNetAt = null; // when the first network sample was taken
   let netRateSeen = false;
 
   async function netStats() {
-    if (!iface) iface = await si.networkInterfaceDefault();
+    if (!iface) iface = await guarded('networkInterfaceDefault', () => si.networkInterfaceDefault());
     if (!iface) return { missing: 'no default network interface' };
-    const list = await si.networkStats(iface);
+    const list = await guarded('networkStats', () => si.networkStats(iface));
     const s = Array.isArray(list) ? list[0] : list;
     if (!s) {
       const gone = iface;
@@ -87,7 +123,7 @@ export function createHostSampler({ si = defaultSi, os = defaultOs, diskPath, no
   return {
     /** Take the baselines that delta metrics are measured from. */
     async prime() {
-      await Promise.allSettled([si.currentLoad(), netStats()]);
+      await Promise.allSettled([guarded('currentLoad', () => si.currentLoad()), netStats()]);
     },
 
     /**
@@ -109,7 +145,10 @@ export function createHostSampler({ si = defaultSi, os = defaultOs, diskPath, no
         try {
           await fn();
         } catch (err) {
-          for (const k of keysHere) if (want.has(k)) missing[k] = { reason: `error reading it: ${err?.message ?? err}` };
+          for (const k of keysHere) {
+            if (!want.has(k)) continue;
+            missing[k] = err?.transient ? { reason: err.message, transient: true } : { reason: `error reading it: ${err?.message ?? err}` };
+          }
         }
       };
 
@@ -117,11 +156,11 @@ export function createHostSampler({ si = defaultSi, os = defaultOs, diskPath, no
 
       await Promise.all([
         tryMetric(['cpu.temp'], async () => {
-          const t = await si.cpuTemperature();
+          const t = await guarded('cpuTemperature', () => si.cpuTemperature());
           put('cpu.temp', t?.main, 'no CPU temperature sensor exposed on this machine');
         }),
         tryMetric(['cpu.load'], async () => {
-          const l = await si.currentLoad();
+          const l = await guarded('currentLoad', () => si.currentLoad());
           put('cpu.load', l?.currentLoad, 'CPU load not reported');
         }),
         tryMetric(['load.1m'], async () => {
@@ -129,12 +168,12 @@ export function createHostSampler({ si = defaultSi, os = defaultOs, diskPath, no
           else put('load.1m', os.loadavg()?.[0], 'load average not reported');
         }),
         tryMetric(['mem.used_pct'], async () => {
-          const m = await si.mem();
+          const m = await guarded('mem', () => si.mem());
           const ok = usable(m?.total) && m.total > 0 && usable(m?.available);
           put('mem.used_pct', ok ? ((m.total - m.available) / m.total) * 100 : undefined, 'memory figures not reported');
         }),
         tryMetric(['disk.used_pct'], async () => {
-          const f = fsFor(await si.fsSize(), diskPath);
+          const f = fsFor(await guarded('fsSize', () => si.fsSize()), diskPath);
           if (!f) {
             missing['disk.used_pct'] = { reason: `no filesystem found for ${diskPath}` };
             return;
@@ -219,11 +258,11 @@ export function createHostDriver({ si = defaultSi, os = defaultOs } = {}) {
       return {
         async open(device) {
           // CPU load and network rates are deltas: take the baseline now so the first
-          // scheduled read reports a real figure rather than an average since boot. Started,
-          // not awaited — on Windows these calls go through WMI/PowerShell and can take longer
-          // than a device is allowed to take to open; a read that comes first simply sees
-          // those two metrics as not available yet (left out, never 0).
-          primed ??= sampler.prime().catch(() => {});
+          // scheduled read reports a real figure rather than an average since boot. Each
+          // systeminformation call is capped by the sampler's slow-call budget, so this wait is
+          // bounded even where those calls are slow (WMI/PowerShell on Windows).
+          primed ??= sampler.prime();
+          await primed;
           return { deviceId: device.id, closed: false };
         },
 

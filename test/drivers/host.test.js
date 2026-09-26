@@ -176,3 +176,37 @@ test('describeHostMetrics: one row per metric, with sources, for the CLI', async
   const again = await describeHostMetrics({ sampler });
   assert.equal(again.find((r) => r.metric === 'net.tx_bps').value, 4000);
 });
+
+test('a slow systeminformation call never holds up a sample: left out as transient, then served from its cached answer', async () => {
+  const si = stubSi();
+  let release;
+  const gate = new Promise((r) => { release = r; });
+  si.cpuTemperature = async () => { await gate; return { main: 51.25 }; };   // e.g. WMI on Windows
+  const sampler = createHostSampler({ si, os: stubOs(), slowMs: 30 });
+
+  const t0 = Date.now();
+  const first = await sampler.sample(['cpu.temp', 'mem.used_pct']);
+  assert.ok(Date.now() - t0 < 1000, 'the sample returned within the budget, not after the slow call');
+  assert.equal(first.values['mem.used_pct'], 75, 'fast metrics are unaffected');
+  assert.equal(first.values['cpu.temp'], undefined, 'the slow metric is left out, never 0');
+  assert.equal(first.missing['cpu.temp'].transient, true);
+  assert.match(first.missing['cpu.temp'].reason, /still being read/);
+
+  release();                                   // the slow call finally answers …
+  await new Promise((r) => setTimeout(r, 5));
+  si.cpuTemperature = async () => new Promise(() => {});   // … and the next one hangs forever
+  const second = await sampler.sample(['cpu.temp']);
+  assert.equal(second.values['cpu.temp'], 51.25, 'the cached answer is used while the next call is slow');
+});
+
+test('a cached answer older than maxStaleMs is not reused', async () => {
+  const si = stubSi();
+  let now = 1_000_000;
+  const sampler = createHostSampler({ si, os: stubOs(), slowMs: 20, maxStaleMs: 60_000, now: () => now });
+  assert.equal((await sampler.sample(['cpu.temp'])).values['cpu.temp'], 48.46);
+  si.cpuTemperature = async () => new Promise(() => {});
+  now += 61_000;
+  const later = await sampler.sample(['cpu.temp']);
+  assert.equal(later.values['cpu.temp'], undefined);
+  assert.equal(later.missing['cpu.temp'].transient, true);
+});
