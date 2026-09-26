@@ -1,6 +1,6 @@
 {
   "name": "synacl-gateway",
-  "version": "0.1.0-dev.0",
+  "version": "0.1.0-rc.1",
   "description": "Reference gateway for the Synacl IoT platform: turn any machine with Node.js into a Synacl gateway (host metrics, local MQTT bridge, Modbus TCP).",
   "keywords": [
     "synacl",
