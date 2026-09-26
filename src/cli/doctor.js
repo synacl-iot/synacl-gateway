@@ -288,7 +288,7 @@ export function createDoctorCommand(deps = {}) {
         bad('devices', `could not list devices: ${clip(err.message)}`);
       }
       const deviceViews = [];
-      if (!mine.length) info('devices', 'no devices attached to this gateway', 'Add a device to the gateway in the app, then press Resend config.');
+      if (!mine.length) info('devices', 'no devices attached to this gateway', 'Add a device to this gateway in the app; the platform sends it to the gateway automatically.');
       else say(`  ${mine.length} device(s) on this gateway${mine.length > MAX_DEVICE_CHECKS ? ` (checking the first ${MAX_DEVICE_CHECKS})` : ''}:\n`);
       for (const dev of mine.slice(0, MAX_DEVICE_CHECKS)) {
         const id = String(dev._id);

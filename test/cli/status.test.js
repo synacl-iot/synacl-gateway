@@ -54,7 +54,7 @@ test('stopped cleanly vs crashed vs never started', async (t) => {
   s = setup(t);
   await s.status([], s.io);
   assert.match(s.io.out(), /no record of a previous run/);
-  assert.match(s.io.out(), /Resend config/);
+  assert.match(s.io.out(), /sent here automatically/);
 });
 
 test('--json is one document with whitelisted fields and no credentials', async (t) => {

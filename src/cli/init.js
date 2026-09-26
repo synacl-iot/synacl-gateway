@@ -1,7 +1,7 @@
 // `synacl-gateway init` — the command the Synacl app prints under Gateways → Connection Info:
 //
-//   npx synacl-gateway init --broker mqtts://mqtt.synacl.com:8883 --tenant <24 hex> \
-//     --gateway <chip id> --user <username> --pass <password> && npx synacl-gateway run
+//   npx -y synacl-gateway@latest init --broker mqtts://mqtt.synacl.com:8883 --tenant <24 hex> \
+//     --gateway <chip id> --user <username> --pass <password> && npx -y synacl-gateway@latest run
 //
 // That line is a shipped contract: its flags, their space-separated form and the `&&` (so a
 // failed check must exit non-zero) cannot change. init validates it, writes config.json

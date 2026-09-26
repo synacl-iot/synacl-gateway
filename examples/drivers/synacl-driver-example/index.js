@@ -9,14 +9,18 @@
 //
 // Install next to a gateway:   npm i --prefix ~/.synacl-gateway/drivers synacl-driver-example
 // then list it in config.json:  "drivers": ["synacl-driver-example"]
-// and check it:                 synacl-gateway conformance --driver synacl-driver-example
+// and check it against a real endpoint:
+//   synacl-gateway conformance --driver synacl-driver-example \
+//     --device '{"conn":{"url":"http://192.168.1.50/status.json"},"tags":[{"name":"temp","jsonPath":"sensors.0.temp"}]}'
+// (without --device the harness opens an empty device, which this driver rightly refuses)
 
 import { defineDriver } from 'synacl-gateway/driver';
 
 // Own properties only, and never a prototype key: the JSON comes from a device on your network.
 function walkPath(value, path) {
   let cur = value;
-  for (const key of path.split('.')) {
+  // `sensors[0].temp` is accepted as a spelling of `sensors.0.temp`.
+  for (const key of path.replace(/\[(\d+)\]/g, '.$1').replace(/^\./, '').split('.')) {
     if (key === '__proto__' || key === 'constructor' || key === 'prototype') return undefined;
     if (cur === null || typeof cur !== 'object' || !Object.hasOwn(cur, key)) return undefined;
     cur = cur[key];

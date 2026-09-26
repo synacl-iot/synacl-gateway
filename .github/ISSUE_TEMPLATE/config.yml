@@ -1,0 +1,14 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Synacl account, plan, devices or app
+    url: mailto:support@synacl.com
+    about: Problems with the platform itself go to Synacl support, not this repository.
+  - name: Security vulnerability
+    url: https://github.com/synacl-iot/synacl-gateway/security/advisories/new
+    about: Report privately. Do not open a public issue. See SECURITY.md.
+  - name: The gateway protocol
+    url: https://synacl.com/protocol/
+    about: Topics, payloads and schemas. The protocol is defined by the platform; this repository implements it.
+  - name: Troubleshooting
+    url: https://github.com/synacl-iot/synacl-gateway/blob/main/docs/troubleshooting.md
+    about: Every CLI error, exit code and device status reason, with what to do about it.

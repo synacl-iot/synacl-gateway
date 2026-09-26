@@ -89,7 +89,7 @@ export function createStatusCommand(deps = {}) {
       const synced = rt.configSynced === true ? 'in sync with the platform' : rt.configSynced === false ? 'not confirmed by the platform yet' : 'sync unknown';
       rows.push(['Config', `hash ${hash}, ${synced}`]);
     } else {
-      rows.push(['Config', 'no device configuration received yet — add devices in the app, then press Resend config']);
+      rows.push(['Config', 'no devices yet — add a device to this gateway in the app; it is sent here automatically']);
     }
     if (rt?.buffer) {
       const b = rt.buffer;

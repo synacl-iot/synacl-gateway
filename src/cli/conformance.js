@@ -5,10 +5,11 @@
 
 /** @typedef {import('../core/types.js').CliIO} CliIO */
 
+import { readFileSync } from 'node:fs';
 import { isAbsolute, join, resolve } from 'node:path';
 import { EXIT, parseCommandArgs, UsageError } from './args.js';
 
-export const USAGE = `Usage: synacl-gateway conformance --offline [--json] [--scenario <id>]… [--driver <package|path>]
+export const USAGE = `Usage: synacl-gateway conformance --offline [--json] [--scenario <id>]… [--driver <package|path> [--device <json|@file>]]
 
 Runs the real gateway core against an in-memory broker, a scripted platform that follows the
 published protocol, and a virtual clock (a simulated half hour takes seconds). Checks the
@@ -19,6 +20,8 @@ Options:
   --offline              run against the scripted platform (the only mode in this version)
   --scenario <id>        run only these scenarios (repeat, or comma-separate: C01,C09)
   --driver <pkg|path>    check a driver package against the driver contract instead
+  --device <json|@file>  with --driver: the device to open, e.g. '{"conn":{"url":"http://…"},"tags":[{"name":"t","jsonPath":"a.b"}]}'
+                         (most drivers need real connection settings to open a device)
   --json                 print the report as JSON
   -h, --help             show this help
 
@@ -48,6 +51,7 @@ export default async function conformance(argv, io) {
       json: { type: 'boolean' },
       scenario: { type: 'string', multiple: true },
       driver: { type: 'string' },
+      device: { type: 'string' },
     }).values;
   } catch (err) {
     io.stderr.write(`error: ${err.message}\n\n${USAGE}`);
@@ -63,13 +67,27 @@ export default async function conformance(argv, io) {
       io.stderr.write(`error: cannot load driver "${args.driver}": ${err.message}\n`);
       return EXIT.USAGE;
     }
+    let device;
+    if (args.device) {
+      try {
+        const text = args.device.startsWith('@') ? readFileSync(args.device.slice(1), 'utf8') : args.device;
+        device = JSON.parse(text);
+        if (device === null || typeof device !== 'object' || Array.isArray(device)) throw new Error('must be a JSON object');
+      } catch (err) {
+        io.stderr.write(`error: --device: ${err.message}\n`);
+        return EXIT.USAGE;
+      }
+    }
     const { testDriver } = await import('../conformance/driver-harness.js');
-    const r = await testDriver(def);
+    const r = await testDriver(def, device ? { device } : {});
     if (args.json) io.stdout.write(`${JSON.stringify({ driver: r.name, ok: r.ok, checks: r.checks }, null, 2)}\n`);
     else {
       io.stdout.write(`driver ${r.name} — driver contract (apiVersion 1)\n`);
       for (const c of r.checks) io.stdout.write(`  ${c.ok ? '[pass]' : '[FAIL]'} ${c.id}${c.ok ? '' : `: ${c.message}`}\n`);
       io.stdout.write(`${r.ok ? 'the driver honours the contract' : 'the driver does NOT honour the contract'}\n`);
+      if (!device && r.checks.some((c) => c.id === 'open' && !c.ok)) {
+        io.stdout.write('hint: without --device the harness opens an empty device; most drivers need real connection\n      settings — pass them with --device \'{"conn":{…},"tags":[{"name":…}]}\' or --device @device.json\n');
+      }
     }
     return r.ok ? EXIT.OK : EXIT.CONFORMANCE;
   }

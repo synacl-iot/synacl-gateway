@@ -21,7 +21,7 @@
     "test": "node --test test.js"
   },
   "peerDependencies": {
-    "synacl-gateway": ">=0.1.0 <1"
+    "synacl-gateway": ">=0.1.0-0 <1"
   },
   "devDependencies": {
     "synacl-gateway": "file:../../.."
