@@ -219,9 +219,11 @@ export function createHostDriver({ si = defaultSi, os = defaultOs } = {}) {
       return {
         async open(device) {
           // CPU load and network rates are deltas: take the baseline now so the first
-          // scheduled read reports a real figure rather than an average since boot.
-          primed ??= sampler.prime();
-          await primed;
+          // scheduled read reports a real figure rather than an average since boot. Started,
+          // not awaited — on Windows these calls go through WMI/PowerShell and can take longer
+          // than a device is allowed to take to open; a read that comes first simply sees
+          // those two metrics as not available yet (left out, never 0).
+          primed ??= sampler.prime().catch(() => {});
           return { deviceId: device.id, closed: false };
         },
 
