@@ -1,0 +1,14 @@
+{
+  "imageId": "img-123456789012345-1758801600000",
+  "ts": 1758801600000,
+  "trigger": "motion",
+  "samples": [
+    0.82,
+    0.91
+  ],
+  "format": "jpeg",
+  "width": 640,
+  "height": 480,
+  "size": 38912,
+  "chunks": 26
+}

@@ -1,0 +1,38 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/config-request.json",
+  "title": "Configuration request",
+  "description": "The gateway asks for its device configuration on `<prefix>/config/request`; the answer arrives on `<prefix>/config/push` (see config-push). Send it on every boot AND every reconnect: config/push is not retained, and the same request also makes the backend re-send the gateway's macros (`macros/push`) and job settings (`job/config` on `<prefix>/cmd`). An empty object is a valid request. `hash` is the FNV-1a 32-bit hash of the config the gateway currently holds (0 or absent = none): when it matches, the reply is a tiny `{\"unchanged\":true}` instead of the full payload. `cap` and `part` drive the chunked transfer for configs larger than one MQTT packet. This schema deliberately keeps `additionalProperties: true`: older and other gateways send extra keys, and the handler dispatches on whichever of the declared keys are present — an unknown key is ignored, never an error.",
+  "type": "object",
+  "properties": {
+    "ts": {
+      "description": "Legacy, ignored by the backend. Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "currentConfigVersion": {
+      "description": "Legacy, ignored by the backend.",
+      "type": "string"
+    },
+    "hash": {
+      "description": "FNV-1a 32-bit (seed 0x811c9dc5, prime 0x01000193) over the exact UTF-8 bytes of the last config/push payload the gateway applied, as an unsigned decimal integer. 0 or absent means no usable cached config, so the full payload is always sent. Deliberately unbounded: any integer the platform cannot match (a negative one from a signed-int32 FNV, an oversized one) is treated as 'no config applied' and answered with the full payload — a hashing mistake on the gateway costs one redundant push, never a gateway that silently never receives its config.",
+      "type": "integer"
+    },
+    "cap": {
+      "description": "How many payload bytes this gateway can receive in ONE MQTT packet. When present and the config is larger, the backend answers with one base64 chunk (`{p,n,h,d}`) instead of the whole payload. Absent means the gateway cannot reassemble chunks and gets the single-shot payload.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "max": {
+      "description": "The largest total config (bytes) this gateway can store and parse. Informational; the backend's own size guard reads the `maxConfigBytes` capability instead.",
+      "type": "integer",
+      "minimum": 1
+    },
+    "part": {
+      "description": "During a chunked transfer: which part (0-based) to send next. The gateway pulls each part itself; the backend keeps no transfer state, so any backend worker can serve any part.",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": true
+}

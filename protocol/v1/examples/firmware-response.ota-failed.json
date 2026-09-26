@@ -1,0 +1,6 @@
+{
+  "correlationId": "b7e4c2a1-5d3f-4a9e-8c7b-6f5e4d3c2b1a",
+  "status": "failed",
+  "error": "HTTP 404 fetching /firmware/ota/1.5.5",
+  "ts": 1758801600000
+}

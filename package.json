@@ -1,0 +1,64 @@
+{
+  "name": "synacl-gateway",
+  "version": "0.1.0-dev.0",
+  "description": "Reference gateway for the Synacl IoT platform: turn any machine with Node.js into a Synacl gateway (host metrics, local MQTT bridge, Modbus TCP).",
+  "keywords": [
+    "synacl",
+    "iot",
+    "gateway",
+    "mqtt",
+    "modbus",
+    "modbus-tcp",
+    "raspberry-pi",
+    "telemetry",
+    "tasmota",
+    "zigbee2mqtt"
+  ],
+  "license": "Apache-2.0",
+  "author": "Synacl Labs (https://synacl.com)",
+  "homepage": "https://synacl.com/protocol/",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/synacl-iot/synacl-gateway.git"
+  },
+  "bugs": {
+    "url": "https://github.com/synacl-iot/synacl-gateway/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20.11"
+  },
+  "bin": {
+    "synacl-gateway": "bin/synacl-gateway.js"
+  },
+  "exports": {
+    ".": "./src/index.js",
+    "./driver": "./src/drivers/api.js",
+    "./testing": "./src/conformance/driver-harness.js",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "bin/",
+    "src/",
+    "protocol/",
+    "LICENSE",
+    "NOTICE",
+    "README.md",
+    "CHANGELOG.md"
+  ],
+  "scripts": {
+    "test": "node scripts/run-tests.js",
+    "conformance": "node bin/synacl-gateway.js conformance --offline",
+    "schemas:sync": "node scripts/schemas-sync.js",
+    "schemas:check": "node scripts/schemas-check.js"
+  },
+  "dependencies": {
+    "ajv": "^8.17.1",
+    "modbus-serial": "^8.0.25",
+    "mqtt": "^5.15.1",
+    "systeminformation": "^5.31.7"
+  },
+  "devDependencies": {
+    "aedes": "^0.51.3"
+  }
+}

@@ -1,0 +1,29 @@
+{
+  "version": "1.7.0",
+  "schemaVersion": 2,
+  "board": "nodemcu-32s",
+  "mac": "123456789012345",
+  "debug": true,
+  "ethernet": true,
+  "buffering": true,
+  "jobs": true,
+  "modbusFormats": true,
+  "configChunked": true,
+  "maxConfigBytes": 24576,
+  "mqttPayloadBytes": 3900,
+  "protocols": [
+    "rs485",
+    "modbus-tcp",
+    "gpio-digital-in",
+    "gpio-digital-out",
+    "i2c",
+    "ble"
+  ],
+  "sensorModels": {
+    "i2c": [
+      "BME280",
+      "SHT31",
+      "generic"
+    ]
+  }
+}

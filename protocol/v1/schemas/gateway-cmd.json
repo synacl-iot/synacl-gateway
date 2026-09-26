@@ -1,0 +1,300 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/gateway-cmd.json",
+  "title": "Gateway command (cloud -> gateway)",
+  "description": "Commands addressed to the gateway itself, published on `<prefix>/cmd` (QoS 1, not retained). Every body carries `command`; the other keys depend on it. IGNORE a command you do not recognise — new ones are added within v1, and a gateway that errors or reboots on an unknown command will break. `job/config` is also re-sent after every config/request, so it arrives on every boot and reconnect. Commands that expect a reply name the reply topic below; the rest are fire-and-forget. The backend does not validate what it publishes — this schema documents it; validate with a plain draft-07 validator (not Ajv `removeAdditional`, which corrupts `oneOf`). New optional keys may be added within v1; ignore keys you do not use.",
+  "type": "object",
+  "required": [
+    "command"
+  ],
+  "properties": {
+    "command": {
+      "type": "string"
+    }
+  },
+  "oneOf": [
+    {
+      "$ref": "#/definitions/restart"
+    },
+    {
+      "$ref": "#/definitions/resetConfig"
+    },
+    {
+      "$ref": "#/definitions/simStart"
+    },
+    {
+      "$ref": "#/definitions/simStop"
+    },
+    {
+      "$ref": "#/definitions/debugDiag"
+    },
+    {
+      "$ref": "#/definitions/debugLogsStart"
+    },
+    {
+      "$ref": "#/definitions/debugLogsStop"
+    },
+    {
+      "$ref": "#/definitions/bleScan"
+    },
+    {
+      "$ref": "#/definitions/jobConfig"
+    }
+  ],
+  "definitions": {
+    "restart": {
+      "title": "restart",
+      "description": "Reboot now. The backend refuses to send it while a firmware update or config apply is in flight unless the user forces it.",
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "restart"
+        }
+      }
+    },
+    "resetConfig": {
+      "title": "reset/config",
+      "description": "Discard the stored device configuration (and its hash) and reboot; the next config/request then carries no hash and receives the full configuration.",
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "reset/config"
+        }
+      }
+    },
+    "simStart": {
+      "title": "sim/start",
+      "description": "Enter simulation mode: publish synthetic readings instead of polling hardware. Report `simMode: true` in the heartbeat while it is on.",
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "sim/start"
+        }
+      }
+    },
+    "simStop": {
+      "title": "sim/stop",
+      "description": "Leave simulation mode.",
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "sim/stop"
+        }
+      }
+    },
+    "debugDiag": {
+      "title": "debug/diag",
+      "description": "Publish one diagnostics snapshot on `<prefix>/debug/response` (see debug-response), echoing `correlationId`.",
+      "type": "object",
+      "required": [
+        "command",
+        "correlationId"
+      ],
+      "properties": {
+        "command": {
+          "const": "debug/diag"
+        },
+        "correlationId": {
+          "description": "A UUID.",
+          "type": "string"
+        }
+      }
+    },
+    "debugLogsStart": {
+      "title": "debug/logs/start",
+      "description": "Start (or, if already running, re-scope) the live log tail on `<prefix>/debug/log` (see debug-log). Replace the current category mask with `cats`; end the tail on your own after a while.",
+      "type": "object",
+      "required": [
+        "command",
+        "cats"
+      ],
+      "properties": {
+        "command": {
+          "const": "debug/logs/start"
+        },
+        "cats": {
+          "description": "Bitmask of log categories to stream: 1 system (always set), 2 network, 4 commands, 8 modbus, 16 sensors, 32 macros. These bit values are a wire contract. At most three categories besides system are selected at once.",
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 63
+        }
+      }
+    },
+    "debugLogsStop": {
+      "title": "debug/logs/stop",
+      "description": "Stop the live log tail.",
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "debug/logs/stop"
+        }
+      }
+    },
+    "bleScan": {
+      "title": "ble/scan",
+      "description": "Listen for Bluetooth LE sensors for `durationMs`, then publish the result on `<prefix>/discovery/ble` (see ble-discovery), echoing `correlationId`. Only sent to gateways whose capability report lists the `ble` protocol.",
+      "type": "object",
+      "required": [
+        "command",
+        "correlationId",
+        "durationMs"
+      ],
+      "properties": {
+        "command": {
+          "const": "ble/scan"
+        },
+        "correlationId": {
+          "description": "A UUID.",
+          "type": "string"
+        },
+        "durationMs": {
+          "description": "Scan window, 1-30 s (default 15 s).",
+          "type": "integer",
+          "minimum": 1000,
+          "maximum": 30000
+        }
+      }
+    },
+    "jobConfig": {
+      "title": "job/config",
+      "description": "Edge-owned job settings: which input opens a job, the hooter (alarm output) binding and the operational limit bands. Persist them apart from the device configuration — they deliberately do not ride config/push, whose hash change would reboot the gateway. Only sent when the machine has an edge-mode job profile, and always with at least one of `control`, `hooter`, `limits`. Devices are named by their id (the config/push `_id`).",
+      "type": "object",
+      "required": [
+        "command"
+      ],
+      "properties": {
+        "command": {
+          "const": "job/config"
+        },
+        "control": {
+          "description": "The digital input that opens and closes jobs (reported on the `job` topic).",
+          "type": "object",
+          "required": [
+            "deviceName",
+            "startOn",
+            "debounceMs",
+            "minJobMs"
+          ],
+          "properties": {
+            "deviceName": {
+              "description": "The input device's id.",
+              "type": "string"
+            },
+            "startOn": {
+              "description": "Which edge starts a job.",
+              "type": "string",
+              "enum": [
+                "rising",
+                "falling"
+              ]
+            },
+            "debounceMs": {
+              "type": "number",
+              "minimum": 0
+            },
+            "minJobMs": {
+              "description": "Discard a job shorter than this (switch chatter).",
+              "type": "number",
+              "minimum": 0
+            }
+          }
+        },
+        "hooter": {
+          "description": "The output to sound on a violation.",
+          "type": "object",
+          "required": [
+            "deviceName",
+            "onSafety",
+            "onJob"
+          ],
+          "properties": {
+            "deviceName": {
+              "description": "The output device's id.",
+              "type": "string"
+            },
+            "onSafety": {
+              "description": "Sound on a safety-band violation.",
+              "type": "boolean"
+            },
+            "onJob": {
+              "description": "Sound on an operational-band violation during a job.",
+              "type": "boolean"
+            }
+          }
+        },
+        "limits": {
+          "description": "Operational bands, already compiled to a single [start, end] range per tag: a reading outside it is a violation. An unbounded side is sent as -1e9 / 1e9.",
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "deviceName",
+              "tag",
+              "start",
+              "end",
+              "duringJob"
+            ],
+            "properties": {
+              "deviceName": {
+                "description": "The device's id.",
+                "type": "string"
+              },
+              "tag": {
+                "description": "The tag's name, as in config/push.",
+                "type": "string"
+              },
+              "start": {
+                "type": "number"
+              },
+              "end": {
+                "type": "number"
+              },
+              "duringJob": {
+                "description": "When the band applies.",
+                "type": "string",
+                "enum": [
+                  "safety_only",
+                  "job_only",
+                  "both",
+                  "none"
+                ]
+              }
+            }
+          }
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "control"
+          ]
+        },
+        {
+          "required": [
+            "hooter"
+          ]
+        },
+        {
+          "required": [
+            "limits"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,45 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/cmd-ack.json",
+  "title": "Command acknowledgement",
+  "description": "The reply to a device command (see device-cmd): on `<prefix>/devices/{deviceId}/cmd/ack` from a gateway, or `tenants/{tenantId}/devices/{deviceId}/cmd/ack` from a directly connected device. Echo the command's `correlationId` — an ack without one is rejected, and it is how the app matches the ack to the command it sent. For an actuator write, `value` is the value actually applied (digital 0|1, PWM duty 0..255, servo microseconds, …) and becomes the confirmed actuator state.",
+  "type": "object",
+  "required": [
+    "correlationId",
+    "status"
+  ],
+  "properties": {
+    "correlationId": {
+      "description": "Copied from the command being acknowledged.",
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "ok",
+        "error"
+      ]
+    },
+    "error": {
+      "description": "Failure reason, or null on success.",
+      "type": [
+        "string",
+        "null"
+      ],
+      "maxLength": 512
+    },
+    "value": {
+      "description": "The applied value echoed back on actuator writes. `null` means the gateway could not read a value back (the reference firmware serialises a NaN as null); the ack is still processed, only the confirmed state is left unchanged.",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}

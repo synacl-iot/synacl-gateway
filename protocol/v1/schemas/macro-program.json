@@ -1,0 +1,418 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/macro-program.json",
+  "title": "Compiled macro program",
+  "description": "The compact, flat opcode program a gateway executes — the `program` of each entry in macros/push. Produced by the platform's macro compiler from the visual editor; a gateway only interprets it. Control flow is expressed with absolute jump targets (JMP/JMPF) into the instructions array. Operands are a literal `{lit}`, a variable `{var}` (params, locals and compiler temporaries, all listed in `vars`), or a tag reading `{tag:{dev, tag}}`. CALL asks the backend to run a backend step (see macro-step); EMIT reports a message on macro/run/status. WARNING for implementers: a `{tag}` operand must not read as 0 when the device is missing, the tag is unknown or nothing has been polled yet — a comparison like \"below 20\" would then actuate hardware on an absent sensor. A copy of the platform's canonical program schema; the two are kept identical by a test.",
+  "type": "object",
+  "required": [
+    "v",
+    "vars",
+    "instructions"
+  ],
+  "properties": {
+    "v": {
+      "type": "integer",
+      "const": 1
+    },
+    "name": {
+      "type": "string"
+    },
+    "params": {
+      "description": "Run-time inputs. Each becomes a variable seeded from the run trigger message (falling back to default).",
+      "type": "array",
+      "maxItems": 16,
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+          },
+          "default": {
+            "type": "number"
+          },
+          "min": {
+            "type": "number"
+          },
+          "max": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "vars": {
+      "description": "All variable names used by the program (params + locals + compiler temporaries).",
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "string",
+        "pattern": "^[a-zA-Z_][a-zA-Z0-9_]*$"
+      }
+    },
+    "instructions": {
+      "type": "array",
+      "maxItems": 256,
+      "items": {
+        "$ref": "#/definitions/instr"
+      }
+    }
+  },
+  "additionalProperties": false,
+  "definitions": {
+    "operand": {
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "lit"
+          ],
+          "properties": {
+            "lit": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "var"
+          ],
+          "properties": {
+            "var": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "tag"
+          ],
+          "properties": {
+            "tag": {
+              "type": "object",
+              "required": [
+                "dev",
+                "tag"
+              ],
+              "properties": {
+                "dev": {
+                  "type": "string"
+                },
+                "tag": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "instr": {
+      "type": "object",
+      "required": [
+        "op"
+      ],
+      "properties": {
+        "op": {
+          "type": "string"
+        }
+      },
+      "oneOf": [
+        {
+          "properties": {
+            "op": {
+              "const": "WAIT"
+            },
+            "ms": {
+              "$ref": "#/definitions/operand"
+            }
+          },
+          "required": [
+            "op",
+            "ms"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "MOVE"
+            },
+            "dev": {
+              "type": "string"
+            },
+            "steps": {
+              "$ref": "#/definitions/operand"
+            },
+            "dir": {
+              "$ref": "#/definitions/operand"
+            },
+            "maxSpeedUs": {
+              "$ref": "#/definitions/operand"
+            },
+            "minSpeedUs": {
+              "$ref": "#/definitions/operand"
+            },
+            "rampSteps": {
+              "$ref": "#/definitions/operand"
+            }
+          },
+          "required": [
+            "op",
+            "dev",
+            "steps"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "DWRITE"
+            },
+            "dev": {
+              "type": "string"
+            },
+            "value": {
+              "$ref": "#/definitions/operand"
+            }
+          },
+          "required": [
+            "op",
+            "dev",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "PWM"
+            },
+            "dev": {
+              "type": "string"
+            },
+            "duty": {
+              "$ref": "#/definitions/operand"
+            }
+          },
+          "required": [
+            "op",
+            "dev",
+            "duty"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "SERVO"
+            },
+            "dev": {
+              "type": "string"
+            },
+            "us": {
+              "$ref": "#/definitions/operand"
+            }
+          },
+          "required": [
+            "op",
+            "dev",
+            "us"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "MWRITE"
+            },
+            "dev": {
+              "type": "string"
+            },
+            "fc": {
+              "type": "integer",
+              "enum": [
+                5,
+                6,
+                15,
+                16
+              ]
+            },
+            "address": {
+              "type": "integer",
+              "minimum": 0,
+              "maximum": 65535
+            },
+            "value": {
+              "$ref": "#/definitions/operand"
+            }
+          },
+          "required": [
+            "op",
+            "dev",
+            "fc",
+            "address",
+            "value"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "READ"
+            },
+            "dev": {
+              "type": "string"
+            },
+            "tag": {
+              "type": "string"
+            },
+            "var": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "op",
+            "dev",
+            "tag",
+            "var"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "SET"
+            },
+            "var": {
+              "type": "string"
+            },
+            "a": {
+              "$ref": "#/definitions/operand"
+            },
+            "aop": {
+              "type": "string",
+              "enum": [
+                "+",
+                "-",
+                "*",
+                "/",
+                "%"
+              ]
+            },
+            "b": {
+              "$ref": "#/definitions/operand"
+            }
+          },
+          "required": [
+            "op",
+            "var",
+            "a"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "JMP"
+            },
+            "to": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "op",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "JMPF"
+            },
+            "a": {
+              "$ref": "#/definitions/operand"
+            },
+            "cmp": {
+              "type": "string",
+              "enum": [
+                "gt",
+                "lt",
+                "gte",
+                "lte",
+                "eq",
+                "neq"
+              ]
+            },
+            "b": {
+              "$ref": "#/definitions/operand"
+            },
+            "to": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "op",
+            "a",
+            "cmp",
+            "b",
+            "to"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "CALL"
+            },
+            "stepId": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          "required": [
+            "op",
+            "stepId"
+          ],
+          "additionalProperties": false
+        },
+        {
+          "properties": {
+            "op": {
+              "const": "EMIT"
+            },
+            "message": {
+              "type": "string"
+            },
+            "severity": {
+              "type": "string",
+              "enum": [
+                "info",
+                "warning",
+                "error",
+                "critical"
+              ]
+            }
+          },
+          "required": [
+            "op",
+            "message"
+          ],
+          "additionalProperties": false
+        }
+      ]
+    }
+  }
+}

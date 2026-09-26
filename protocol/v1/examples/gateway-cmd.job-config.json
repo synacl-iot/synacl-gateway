@@ -1,0 +1,23 @@
+{
+  "command": "job/config",
+  "control": {
+    "deviceName": "66f1a2b3c4d5e6f708192a3c",
+    "startOn": "rising",
+    "debounceMs": 250,
+    "minJobMs": 60000
+  },
+  "hooter": {
+    "deviceName": "66f1a2b3c4d5e6f708192a3c",
+    "onSafety": true,
+    "onJob": true
+  },
+  "limits": [
+    {
+      "deviceName": "66f1a2b3c4d5e6f708192a3d",
+      "tag": "temperature",
+      "start": -1000000000,
+      "end": 80,
+      "duringJob": "both"
+    }
+  ]
+}

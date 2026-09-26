@@ -1,0 +1,29 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/macros-run.json",
+  "title": "Run a macro (cloud -> gateway)",
+  "description": "Start a run of a macro previously delivered by macros/push, published on `<prefix>/macros/run` (QoS 1, not retained). MOVES PHYSICAL EQUIPMENT. Report the run on `<prefix>/macro/run/status` (see macro-run-status) with the same `runId` and `macroId`; answer an unknown `macroId` with phase `error` (message `unknown macro`) rather than silently doing nothing. Seed each program parameter from `params` (falling back to its default) and clamp it to the parameter's min/max yourself — the backend clamps too, but the gateway is the last line. The backend does not validate what it publishes — this schema documents it. New optional keys may be added within v1; ignore keys you do not use.",
+  "type": "object",
+  "required": [
+    "macroId",
+    "runId",
+    "params"
+  ],
+  "properties": {
+    "macroId": {
+      "description": "Which macro (its `macroId` in macros/push).",
+      "type": "string"
+    },
+    "runId": {
+      "description": "A UUID for this run.",
+      "type": "string"
+    },
+    "params": {
+      "description": "Parameter name -> number, for every parameter the program declares.",
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    }
+  }
+}

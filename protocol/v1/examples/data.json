@@ -1,0 +1,10 @@
+{
+  "ts": 1758801600000,
+  "seq": 1042,
+  "q": "good",
+  "values": {
+    "voltage": 231.6,
+    "current": 4.12,
+    "power_factor": 0.97
+  }
+}

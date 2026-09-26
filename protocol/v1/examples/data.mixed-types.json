@@ -1,0 +1,10 @@
+{
+  "ts": 1758801600000,
+  "seq": 7,
+  "q": "uncertain",
+  "values": {
+    "temperature": 23.4,
+    "door_open": false,
+    "mode": "auto"
+  }
+}

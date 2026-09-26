@@ -1,0 +1,8 @@
+{
+  "ts": 1758801600000,
+  "severity": "warning",
+  "code": "THRESHOLD_VIOLATION",
+  "message": "temperature 81.2 is above 80",
+  "tag": "temperature",
+  "value": 81.2
+}

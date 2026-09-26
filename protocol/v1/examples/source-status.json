@@ -1,0 +1,13 @@
+{
+  "online": true,
+  "ts": 1758801600000,
+  "ip": "192.168.1.42",
+  "fw": "1.5.4",
+  "rssi": -61,
+  "uplink": "wifi",
+  "bufRam": 0,
+  "bufFlash": 0,
+  "bufDropped": 0,
+  "flashErrors": 0,
+  "flashWearPct": 1
+}

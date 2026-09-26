@@ -1,0 +1,5 @@
+{
+  "command": "read/disable",
+  "mode": "timed",
+  "durationMs": 600000
+}

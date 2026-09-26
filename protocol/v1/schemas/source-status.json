@@ -1,0 +1,77 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/source-status.json",
+  "title": "Gateway presence (heartbeat + last will)",
+  "description": "The gateway's presence on `<prefix>/status`, published RETAINED. Two uses of one schema: (1) the MQTT last will, set at connect time, is exactly `{\"online\":false}` so the broker announces an ungraceful disconnect; (2) a heartbeat `{\"online\":true, …}` on connect and then every 60 s. The platform treats a gateway whose last heartbeat is older than 180 s as offline, so a missing heartbeat is itself evidence. An `online:false` also marks every device behind the gateway offline. Every field but `online` is optional and self-reported; the ones present are stored on the gateway record and shown in the app. Unknown keys are silently stripped (Ajv `removeAdditional`), so an undeclared field never reaches the handler.",
+  "type": "object",
+  "required": [
+    "online"
+  ],
+  "properties": {
+    "online": {
+      "type": "boolean"
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "ip": {
+      "description": "The gateway's local IP address (self-reported).",
+      "type": "string"
+    },
+    "fw": {
+      "description": "Firmware version string.",
+      "type": "string"
+    },
+    "rssi": {
+      "description": "Wi-Fi (or cellular) signal strength in dBm. A number — fractional values are accepted.",
+      "type": "number"
+    },
+    "simMode": {
+      "description": "The gateway is running in simulation mode (synthetic readings).",
+      "type": "boolean"
+    },
+    "uplink": {
+      "description": "Which interface carries the internet connection right now.",
+      "type": "string",
+      "enum": [
+        "wifi",
+        "ethernet",
+        "cellular"
+      ]
+    },
+    "ethIp": {
+      "description": "The Ethernet interface's own address; present when Ethernet is used only for a local segment (LAN mode) rather than as the uplink.",
+      "type": "string",
+      "maxLength": 64
+    },
+    "bufRam": {
+      "description": "Store-and-forward buffer: records currently held in RAM. The buffer fields are absent on firmware without the `buffering` capability.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "bufFlash": {
+      "description": "Store-and-forward buffer: records currently held on flash.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "bufDropped": {
+      "description": "Cumulative records dropped (ring overflow, no valid clock, identity mismatch).",
+      "type": "integer",
+      "minimum": 0
+    },
+    "flashErrors": {
+      "description": "Cumulative flash write-verify / mount failures. Greater than 0 is the replace-this-unit signal.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "flashWearPct": {
+      "description": "Estimated flash erase-cycle consumption, 0-100.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 100
+    }
+  },
+  "additionalProperties": false
+}

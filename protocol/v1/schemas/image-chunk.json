@@ -1,0 +1,31 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/image-chunk.json",
+  "title": "Event image chunk (experimental)",
+  "description": "EXPERIMENTAL — may change without a version bump. One base64 slice of an image announced by image-meta, on `<prefix>/devices/{deviceId}/image/chunk`. Send them in `idx` order after the header.",
+  "type": "object",
+  "required": [
+    "imageId",
+    "idx",
+    "data"
+  ],
+  "properties": {
+    "imageId": {
+      "description": "The `imageId` of the image-meta header.",
+      "type": "string",
+      "maxLength": 96
+    },
+    "idx": {
+      "description": "0-based chunk index, less than the header's `chunks`.",
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 1023
+    },
+    "data": {
+      "description": "Base64 slice of the image bytes. The reference fog firmware sends 2048 characters per chunk; up to 4096 are accepted.",
+      "type": "string",
+      "maxLength": 4096
+    }
+  },
+  "additionalProperties": false
+}

@@ -1,0 +1,92 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/ble-discovery.json",
+  "title": "Bluetooth discovery result",
+  "description": "The reply to the `ble/scan` gateway command, on `<prefix>/discovery/ble`: the recognised Bluetooth LE sensors the gateway heard during the scan window. Echo the command's `correlationId`. The reference firmware caps it at 16 devices sorted by signal strength and keeps it under 3.5 KB. The result is cached for 10 minutes and shown in the Add Device flow. Every field is declared because unknown keys are silently stripped (Ajv `removeAdditional`).",
+  "type": "object",
+  "required": [
+    "correlationId",
+    "devices"
+  ],
+  "properties": {
+    "correlationId": {
+      "description": "Copied from the `ble/scan` command.",
+      "type": "string",
+      "maxLength": 64
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "durationMs": {
+      "description": "How long the scan actually ran.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "ignored": {
+      "description": "Advertisers heard but not recognised as a supported sensor format.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "error": {
+      "description": "Set, with `devices: []`, when the scan could not run yet: `ble/restarting` (the gateway released its Bluetooth memory at boot and is rebooting to scan — the FINAL result follows under the SAME correlationId and overwrites this one), `ble/busy` (a macro is running, so it refused to restart), `ble/no_memory`, `ble/start_failed`. Without it a failed scan would read as \"no sensors found\".",
+      "type": "string",
+      "maxLength": 64
+    },
+    "devices": {
+      "type": "array",
+      "maxItems": 32,
+      "items": {
+        "type": "object",
+        "required": [
+          "mac",
+          "format"
+        ],
+        "properties": {
+          "mac": {
+            "description": "Colon-separated, e.g. `A4:C1:38:12:34:56`.",
+            "type": "string",
+            "pattern": "^[0-9A-Fa-f]{2}(:[0-9A-Fa-f]{2}){5}$"
+          },
+          "rssi": {
+            "description": "Signal strength in dBm.",
+            "type": "integer"
+          },
+          "name": {
+            "description": "Advertised local name, if any.",
+            "type": "string",
+            "maxLength": 32
+          },
+          "format": {
+            "description": "The advertisement format the gateway decoded.",
+            "type": "string",
+            "enum": [
+              "bthome",
+              "ruuvi",
+              "atc",
+              "pvvx"
+            ]
+          },
+          "encrypted": {
+            "description": "The payload is encrypted (e.g. BTHome with a bind key), so `fields` may be empty.",
+            "type": "boolean"
+          },
+          "fields": {
+            "description": "Decoded readings: canonical field key -> number (e.g. `temperature`, `humidity`, `battery`). The same keys a BLE tag's `bleField` names.",
+            "type": "object",
+            "maxProperties": 32,
+            "propertyNames": {
+              "maxLength": 32
+            },
+            "additionalProperties": {
+              "type": "number"
+            }
+          }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}

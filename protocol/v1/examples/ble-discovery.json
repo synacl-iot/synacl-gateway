@@ -1,0 +1,27 @@
+{
+  "correlationId": "b7e4c2a1-5d3f-4a9e-8c7b-6f5e4d3c2b1a",
+  "ts": 1758801600000,
+  "durationMs": 15000,
+  "ignored": 4,
+  "devices": [
+    {
+      "mac": "A4:C1:38:12:34:56",
+      "rssi": -61,
+      "name": "ATC_123456",
+      "format": "pvvx",
+      "encrypted": false,
+      "fields": {
+        "temperature": 21.5,
+        "humidity": 48,
+        "battery": 91
+      }
+    },
+    {
+      "mac": "D4:11:22:33:44:55",
+      "rssi": -80,
+      "format": "bthome",
+      "encrypted": true,
+      "fields": {}
+    }
+  ]
+}

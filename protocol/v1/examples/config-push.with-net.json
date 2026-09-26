@@ -1,0 +1,28 @@
+{
+  "devices": [
+    {
+      "_id": "66f1a2b3c4d5e6f708192a3c",
+      "protocol": "gpio-digital-out",
+      "conn": {
+        "pinNumber": 26,
+        "activeHigh": true,
+        "defaultState": 0
+      },
+      "tags": [
+        {
+          "name": "relay",
+          "gpioPin": 26
+        }
+      ]
+    }
+  ],
+  "success": true,
+  "net": {
+    "ethMode": "lan",
+    "ethAddr": "static",
+    "ethIp": "10.0.0.20",
+    "ethMask": "255.255.255.0",
+    "ethGw": "",
+    "ethDns": ""
+  }
+}

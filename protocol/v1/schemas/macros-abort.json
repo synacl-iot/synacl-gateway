@@ -1,0 +1,13 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/macros-abort.json",
+  "title": "Abort macro runs (cloud -> gateway)",
+  "description": "Stop a macro run, published on `<prefix>/macros/abort` (QoS 1, not retained). With `runId`, abort that run; with an empty body `{}`, abort EVERY run on the gateway. Report the stop on macro/run/status (phase `error`, message `aborted`). This is a network message: it cannot reach an offline gateway and is NOT a safety function — an emergency stop must be hardwired. The backend does not validate what it publishes — this schema documents it. New optional keys may be added within v1; ignore keys you do not use.",
+  "type": "object",
+  "properties": {
+    "runId": {
+      "description": "The run to abort. Absent = all runs.",
+      "type": "string"
+    }
+  }
+}

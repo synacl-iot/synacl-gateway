@@ -1,0 +1,53 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://synacl.com/protocol/v1/schemas/macro-run-status.json",
+  "title": "Macro run lifecycle",
+  "description": "Progress of a macro run on the gateway, published on `<prefix>/macro/run/status`: `started` when a `macros/run` begins, `step` as instructions execute (and for EMIT messages), then exactly one of `done` or `error`. `runId` and `macroId` are copied from the `macros/run` message. Recorded as the run's history.",
+  "type": "object",
+  "required": [
+    "runId",
+    "macroId",
+    "phase"
+  ],
+  "properties": {
+    "runId": {
+      "type": "string"
+    },
+    "macroId": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string",
+      "enum": [
+        "started",
+        "step",
+        "done",
+        "error"
+      ]
+    },
+    "idx": {
+      "description": "Index of the instruction being executed.",
+      "type": "integer",
+      "minimum": 0
+    },
+    "message": {
+      "type": "string",
+      "maxLength": 512
+    },
+    "severity": {
+      "type": "string",
+      "enum": [
+        "info",
+        "warning",
+        "error",
+        "critical"
+      ]
+    },
+    "ts": {
+      "description": "Epoch milliseconds.",
+      "type": "integer",
+      "minimum": 0
+    }
+  },
+  "additionalProperties": false
+}
