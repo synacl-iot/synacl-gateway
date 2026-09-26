@@ -48,11 +48,17 @@ export function createCloudApi({ base, fetch: fetchImpl = globalThis.fetch, time
       headers.authorization = `Bearer ${token}`;
     }
     let res;
+    // A ref'd timer, not AbortSignal.timeout() (unref'd): doctor is short-lived, and on Node
+    // 20/22 an unref'd timer lets the process exit mid-request instead of timing out.
+    const ctl = new AbortController();
+    const timer = setTimeout(() => ctl.abort(Object.assign(new Error('timeout'), { name: 'TimeoutError' })), timeoutMs);
     try {
-      res = await fetchImpl(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: AbortSignal.timeout(timeoutMs), redirect: 'follow' });
+      res = await fetchImpl(url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body), signal: ctl.signal, redirect: 'follow' });
     } catch (err) {
       const code = err && (err.name === 'TimeoutError' || err.name === 'AbortError') ? 'ETIMEDOUT' : (err && err.cause && err.cause.code) || 'ENETWORK';
       throw new ApiError(`${method} ${path}: ${code === 'ETIMEDOUT' ? `no answer within ${Math.round(timeoutMs / 1000)} s` : `request failed (${code})`}`, { code, path });
+    } finally {
+      clearTimeout(timer);
     }
     let data = null;
     const text = await res.text().catch(() => '');

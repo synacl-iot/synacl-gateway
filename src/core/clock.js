@@ -28,9 +28,14 @@ export const realClock = {
  */
 export async function probeSkew(apiUrl, { timeoutMs = 5000, fetch: fetchImpl = globalThis.fetch } = {}) {
   if (!apiUrl || typeof fetchImpl !== 'function') return null;
+  // A plain setTimeout, not AbortSignal.timeout(): that timer is unref'd, so in a short-lived
+  // command (doctor, init) where nothing else holds the event loop, Node 20/22 would exit with
+  // this promise still pending instead of timing out.
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(new Error(`no answer within ${timeoutMs} ms`)), timeoutMs);
   try {
     const sent = Date.now();
-    const res = await fetchImpl(apiUrl, { method: 'HEAD', signal: AbortSignal.timeout(timeoutMs), redirect: 'manual' });
+    const res = await fetchImpl(apiUrl, { method: 'HEAD', signal: ctl.signal, redirect: 'manual' });
     const received = Date.now();
     const header = res?.headers?.get?.('date');
     if (!header) return null;
@@ -42,5 +47,7 @@ export async function probeSkew(apiUrl, { timeoutMs = 5000, fetch: fetchImpl = g
     return Math.round(local - (server + 500));
   } catch {
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
