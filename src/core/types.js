@@ -239,7 +239,7 @@
  *                       names(): string[] }                                  // plain Ajv: no removeAdditional/useDefaults
  *  state.js         openState({home, tenant, gateway, clock?, log?}) → { dir, backfillDir,   // nothing is created before the first write or lock()
  *                     lock(): void, unlock(): void,                          // throws LockHeldError
- *                     lockHolder(): {pid, startedAt, hostname, alive} | null,
+ *                     lockHolder(): {pid, startedAt, hostname, alive, stale?} | null,   // stale: 'exited'|'pid-reused'|'other-host'; never removes the lock
  *                     readConfigMeta(): Object | null,                       // read-only: never deletes (status/doctor read it concurrently)
  *                     readConfigRaw(): {bytes: Buffer, meta: Object} | null,
  *                     writeConfigRaw(bytes: Buffer, meta: Object): void,     // atomic
@@ -249,6 +249,9 @@
  *                     writeRuntime(r: Object): void, readRuntime(): Object | null }
  *                   also exports LockHeldError (name 'LockHeldError', code 'ELOCKED', .holder), stateDirFor(home, tenant, gateway),
  *                   isPidAlive(pid). runtime.json carries {state, updatedAt, pid, version, connected, configHash, configSynced, devices[], buffer}.
+ *                   run.lock carries {pid, startedAt, hostname, processStart?} — processStart from process-start.js; absent on Windows and in 0.1.0 locks.
+ *  process-start.js processStart(pid) → {kind: 'linux', boot, ticks} | {kind: 'ps', lstart} | null,
+ *                   pidReused(pid, recorded, probe?) → boolean                // true only when provably another process
  *  config-model.js  normalizeConfig(doc: Object, {overrides, minIntervalMs, receivedAt?}) → {devices: DeviceSpec[], errors: string[]}
  *  config-sync.js   createConfigSync({transport, topics, state, clock, log, configCap, onApply, validators?, initialHash?, maxConfigBytes?, onSynced?}) →
  *                     { onConnected(): void, onDisconnected(): void,

@@ -1,6 +1,8 @@
 // `synacl-gateway status` — what the gateway is doing, read from the files `run` keeps up to
 // date (runtime.json every 10 s, run.lock). Needs no connection
-// and works when the gateway is stopped or crashed: the lock's owner tells running from dead.
+// and works when the gateway is stopped or crashed: the lock's owner tells running from dead —
+// by its pid and the start time recorded with it, because a container restart or a reboot
+// hands the old pid to another process. Read-only: a stale lock is reported, not removed.
 
 /** @typedef {import('../core/types.js').CliIO} CliIO */
 
@@ -51,10 +53,18 @@ export function createStatusCommand(deps = {}) {
     // Not readConfigRaw(): it discards a stored config whose hash doesn't match, and a running
     // gateway can be between writing the bytes and the meta — a status call must never race it.
     const running = Boolean(lock?.alive);
+    // A restarted gateway takes the lock first and writes runtime.json only once its devices
+    // are loaded; until then the file is the previous run's. The lock is taken just before
+    // startedAt is recorded, so a snapshot that started before the lock is not this process's.
+    const runtimeCurrent = running && Boolean(runtime)
+      && !(Number.isFinite(runtime.startedAt) && Number.isFinite(lock.startedAt) && runtime.startedAt < lock.startedAt);
+    const staleLock = lock && !running ? { pid: lock.pid, hostname: lock.hostname, reason: lock.stale ?? null } : null;
 
     const report = {
       running,
       pid: running ? lock.pid : null,
+      runtimeCurrent,
+      staleLock,
       gateway: config.gateway,
       tenant: config.tenant,
       broker: config.broker,
@@ -69,16 +79,19 @@ export function createStatusCommand(deps = {}) {
 
     const rows = [['Gateway', `${config.gateway} (account ${config.tenant}) on ${config.broker}`]];
     const rt = report.runtime;
-    if (running) {
+    const stale = staleLock ? ` (${staleLockText(staleLock)})` : '';
+    if (running && (runtimeCurrent || !rt)) {
       const up = Number.isFinite(rt?.startedAt) ? `, up ${formatDuration(now - rt.startedAt)}` : '';
       rows.push(['Process', `running (pid ${lock.pid}${up}${rt?.version ? `, version ${rt.version}` : ''})`]);
+    } else if (running) {
+      rows.push(['Process', `running (pid ${lock.pid}, starting up)`]);
     } else if (rt) {
       const when = Number.isFinite(rt.updatedAt) ? formatAgo(rt.updatedAt, now) : 'at an unknown time';
-      rows.push(['Process', rt.state === 'stopped' ? `not running — stopped ${when}` : `not running — last seen ${when} (it did not shut down cleanly)`]);
+      rows.push(['Process', rt.state === 'stopped' ? `not running${stale} — stopped ${when}` : `not running${stale} — last seen ${when} (it did not shut down cleanly)`]);
     } else {
-      rows.push(['Process', 'not running — no record of a previous run with these settings']);
+      rows.push(['Process', `not running${stale} — no record of a previous run with these settings`]);
     }
-    if (rt && running) {
+    if (rt && runtimeCurrent) {
       rows.push(['MQTT', rt.connected
         ? `connected${Number.isFinite(rt.connectedSince) ? ` for ${formatDuration(now - rt.connectedSince)}` : ''}`
         : `not connected${rt.state ? ` (${rt.state})` : ''}`]);
@@ -111,8 +124,16 @@ export function createStatusCommand(deps = {}) {
       out.line(table([head, ...body], { indent: '  ' }));
     }
     if (rt && !running) out.line('\nThe values above are from the last run. Start it with: synacl-gateway run');
+    else if (rt && !runtimeCurrent) out.line('\nThe values above are from the last run; the gateway is starting and replaces them once its devices are loaded.');
     return EXIT.OK;
   };
+}
+
+function staleLockText({ pid, hostname, reason }) {
+  if (reason === 'pid-reused') return `stale lock file: pid ${pid} is now a different process`;
+  if (reason === 'exited') return `stale lock file: pid ${pid} has exited`;
+  if (reason === 'other-host') return `stale lock file from host ${hostname}`;
+  return 'stale lock file';
 }
 
 export default createStatusCommand();

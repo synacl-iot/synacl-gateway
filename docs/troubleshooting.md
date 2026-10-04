@@ -75,7 +75,9 @@ If a gateway is already running with these settings, `init` skips the check and 
 | `synacl-gateway needs Node.js 20.11 or newer (22 LTS recommended); this is v18.19.0.` | See the [Raspberry Pi page](raspberry-pi.md) for installing Node 22. |
 | `warning: …/config.json is readable by other users (mode 644) — run: chmod 600 …` | The file holds the broker password. Run the `chmod`. |
 
-`status` says `not running — last seen 5m ago (it did not shut down cleanly)` after a crash or a `kill -9`; `not running — stopped …` after a clean stop; `no record of a previous run with these settings` when it never ran with this `config.json`.
+`status` says `not running — last seen 5m ago (it did not shut down cleanly)` after a crash or a `kill -9`; `not running — stopped …` after a clean stop; `no record of a previous run with these settings` when it never ran with this `config.json`. After a crash the lock file is still there, and `status` says why it does not count: `(stale lock file: pid N has exited)`, or `(stale lock file: pid N is now a different process)` when a reboot or a container restart has given that pid to another process (the lock records when its process started, so a reused pid is recognized). `status` never deletes the file; the next `run` takes it over. `running (pid N, starting up)` means the gateway has just started and has not written its first status yet — the values shown are the previous run's.
+
+On Windows the lock records no start time, so a pid reused by another process still reads as running; stop that process or delete `run.lock` in the state directory while the gateway is stopped.
 
 ## The gateway card stays offline
 

@@ -3,9 +3,11 @@ import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readdirSync, readFileSync, statSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir, hostname } from 'node:os';
 import { join } from 'node:path';
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { openState, stateDirFor, atomicWrite, LockHeldError, isPidAlive } from '../../src/core/state.js';
+import { processStart } from '../../src/core/process-start.js';
 import { fnv1a32 } from '../../src/core/fnv.js';
 
 const TENANT = '64b7a1000000000000000004';
@@ -16,6 +18,14 @@ after(() => { for (const d of dirs) rmSync(d, { recursive: true, force: true });
 const home = () => { const d = mkdtempSync(join(tmpdir(), 'sgw-state-')); dirs.push(d); return d; };
 const mode = (p) => statSync(p).mode & 0o777;
 const deadPid = () => spawnSync(process.execPath, ['-e', '0']).pid;
+const STATE_JS = fileURLToPath(new URL('../../src/core/state.js', import.meta.url));
+// Windows has no start time the lock can record; there the pid check is all there is.
+const startsKnown = process.platform !== 'win32';
+// A start record no live process can match (10 ms after boot; 1970): what a lock looks like
+// once a container restart or a reboot has handed its pid to a different process.
+const FOREIGN_START = process.platform === 'linux'
+  ? { kind: 'linux', boot: null, ticks: '1' }
+  : { kind: 'ps', lstart: 'Thu Jan 1 00:00:00 1970' };
 
 test('the state dir is keyed to the identity and sanitised', () => {
   const h = home();
@@ -107,11 +117,13 @@ test('seq: saved counters come back as saved (the scheduler adds its safety marg
   assert.deepEqual(s.readSeq(), { v: 1, devices: { a: 41 } });
 });
 
-test('lock: run.lock holds pid, startedAt, hostname; unlock removes it', () => {
+test('lock: run.lock holds pid, startedAt, hostname and when this process started; unlock removes it', () => {
   const s = openState({ home: home(), tenant: TENANT, gateway: GW, clock: { now: () => 1234 } });
   s.lock();
-  const body = JSON.parse(readFileSync(join(s.dir, 'run.lock'), 'utf8'));
+  const { processStart: started, ...body } = JSON.parse(readFileSync(join(s.dir, 'run.lock'), 'utf8'));
   assert.deepEqual(body, { pid: process.pid, startedAt: 1234, hostname: hostname() });
+  if (startsKnown) assert.deepEqual(started, processStart(process.pid));
+  else assert.equal(started, undefined);
   assert.deepEqual(s.lockHolder(), { pid: process.pid, startedAt: 1234, hostname: hostname(), alive: true });
   if (posix) assert.equal(mode(join(s.dir, 'run.lock')), 0o600);
   s.unlock();
@@ -153,6 +165,56 @@ test('lock: a dead pid, our own pid or another host is stale and taken over', ()
   }
   assert.equal(isPidAlive(deadPid()), false);
   assert.equal(isPidAlive(-1), false);
+});
+
+test('lock: a pid that now belongs to a DIFFERENT process (a container restart, a reboot) is stale and taken over', { skip: !startsKnown && 'no process start time on Windows' }, () => {
+  const s = openState({ home: home(), tenant: TENANT, gateway: GW });
+  mkdirSync(s.dir, { recursive: true });
+  // Same host, and the pid answers kill(pid, 0) — but it is not the process that wrote the lock.
+  assert.ok(isPidAlive(process.ppid));
+  writeFileSync(join(s.dir, 'run.lock'), JSON.stringify({ pid: process.ppid, startedAt: 5, hostname: hostname(), processStart: FOREIGN_START }));
+  const holder = s.lockHolder();
+  assert.equal(holder.alive, false);
+  assert.equal(holder.stale, 'pid-reused');
+  // Before the fix this threw LockHeldError, and a service manager restarted it into the same
+  // refusal (exit 6) for as long as the unrelated process lived.
+  s.lock();
+  assert.equal(JSON.parse(readFileSync(join(s.dir, 'run.lock'), 'utf8')).pid, process.pid);
+  s.unlock();
+});
+
+test('lock: a live holder in another process is still live — no takeover', async () => {
+  const h = home();
+  const child = spawn(process.execPath, ['--input-type=module', '-e', `
+    import { openState } from ${JSON.stringify(pathToFileURL(STATE_JS).href)};
+    openState(${JSON.stringify({ home: h, tenant: TENANT, gateway: GW })}).lock();
+    process.stdout.write('locked\\n');
+    setInterval(() => {}, 1e6);
+  `], { stdio: ['ignore', 'pipe', 'inherit'] });
+  try {
+    await new Promise((resolve, reject) => {
+      child.stdout.on('data', (d) => { if (String(d).includes('locked')) resolve(); });
+      child.once('exit', (code) => reject(new Error(`the lock holder exited (${code})`)));
+    });
+    const s = openState({ home: h, tenant: TENANT, gateway: GW });
+    const holder = s.lockHolder();
+    assert.equal(holder.pid, child.pid);
+    assert.equal(holder.alive, true);
+    assert.equal(holder.stale, undefined);
+    assert.throws(() => s.lock(), LockHeldError);
+  } finally {
+    child.kill('SIGKILL');
+  }
+});
+
+test('lock: no usable start record (a lock from 0.1.0, another platform, junk) → the pid check alone decides', () => {
+  for (const extra of [{}, { processStart: { kind: 'from-a-later-version', start: 'x' } }, { processStart: 'junk' }, { processStart: null }]) {
+    const s = openState({ home: home(), tenant: TENANT, gateway: GW });
+    mkdirSync(s.dir, { recursive: true });
+    writeFileSync(join(s.dir, 'run.lock'), JSON.stringify({ pid: process.ppid, startedAt: 5, hostname: hostname(), ...extra }));
+    assert.equal(s.lockHolder().alive, true, JSON.stringify(extra));
+    assert.throws(() => s.lock(), LockHeldError, JSON.stringify(extra));
+  }
 });
 
 test('lock: a second instance in the same process is refused while the first holds it', () => {
