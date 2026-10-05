@@ -83,6 +83,9 @@ jobs:
   docker:
     needs: verify
     runs-on: ubuntu-latest
+    # Same approval gate as npm: without it any v* tag pushed by anyone with write access
+    # published ghcr.io/synacl-iot/synacl-gateway:latest unreviewed.
+    environment: release
     permissions:
       contents: read
       packages: write

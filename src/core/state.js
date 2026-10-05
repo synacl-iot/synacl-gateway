@@ -14,6 +14,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { hostname as osHostname } from 'node:os';
 import { join } from 'node:path';
 import { fnv1a32 } from './fnv.js';
+import { pidReused, processStart } from './process-start.js';
 
 /** @typedef {import('./types.js').Clock} Clock */
 /** @typedef {import('./types.js').Logger} Logger */
@@ -87,6 +88,9 @@ const EMPTY_OVERRIDES = () => ({ v: 1, devices: {} });
 /** Lock files held by this process — two gateways with one identity in one process are refused too. */
 const HELD = new Set();
 
+/** This process's start record, written into every lock it takes (undefined = not read yet). */
+let ownStart;
+
 /**
  * @param {{home: string, tenant: string, gateway: string, clock?: Clock, log?: Logger}} opts
  */
@@ -119,14 +123,17 @@ export function openState({ home, tenant, gateway, clock, log }) {
     return h && typeof h === 'object' && Number.isInteger(h.pid) ? h : null;
   }
 
-  function holderAlive(h) {
+  /** null = the holder is alive; otherwise why its lock is stale. */
+  function staleReason(h) {
     // Another host (a shared volume, or Docker re-creating the container with a new hostname)
     // cannot be probed by pid, and treating it as live would crash-loop the new container. A
     // lock carrying our own pid that this process does not hold (HELD) is left over from an
     // earlier life of this pid — containers restart as pid 1.
-    if (h.hostname !== osHostname()) return false;
-    if (h.pid === process.pid) return HELD.has(f.lock);
-    return isPidAlive(h.pid);
+    if (h.hostname !== osHostname()) return 'other-host';
+    if (h.pid === process.pid) return HELD.has(f.lock) ? null : 'pid-reused';
+    if (!isPidAlive(h.pid)) return 'exited';
+    // The pid exists — but after a container restart or a reboot it is usually someone else's.
+    return pidReused(h.pid, h.processStart) ? 'pid-reused' : null;
   }
 
   return {
@@ -137,7 +144,8 @@ export function openState({ home, tenant, gateway, clock, log }) {
     lock() {
       if (held) return;
       ensureDir();
-      const body = JSON.stringify({ pid: process.pid, startedAt: now(), hostname: osHostname() });
+      if (ownStart === undefined) ownStart = processStart(process.pid);
+      const body = JSON.stringify({ pid: process.pid, startedAt: now(), hostname: osHostname(), processStart: ownStart ?? undefined });
       for (let attempt = 0; attempt < 2; attempt++) {
         try {
           const fd = openSync(f.lock, 'wx', 0o600);
@@ -148,9 +156,12 @@ export function openState({ home, tenant, gateway, clock, log }) {
         } catch (err) {
           if (err.code !== 'EEXIST') throw err;
           const h = readHolder();
-          if (h && holderAlive(h)) throw new LockHeldError(h, f.lock);
-          if (h && h.hostname !== osHostname()) {
+          const stale = h && staleReason(h);
+          if (h && !stale) throw new LockHeldError(h, f.lock);
+          if (stale === 'other-host') {
             log?.warn('taking over a lock left by another host', { pid: h.pid, hostname: h.hostname });
+          } else if (stale === 'pid-reused' && h.pid !== process.pid) {
+            log?.info(`taking over a stale lock: pid ${h.pid} is now a different process`, { pid: h.pid });
           }
           rmSync(f.lock, { force: true });
         }
@@ -170,11 +181,17 @@ export function openState({ home, tenant, gateway, clock, log }) {
       }
     },
 
-    /** @returns {{pid: number, startedAt: number, hostname: string, alive: boolean} | null} */
+    /**
+     * Read-only: a stale lock is reported, never removed — `run` takes it over in lock(), and a
+     * reader that deleted it could delete the lock a starting gateway has just written.
+     * @returns {{pid: number, startedAt: number, hostname: string, alive: boolean,
+     *   stale?: 'exited'|'pid-reused'|'other-host'} | null}
+     */
     lockHolder() {
       const h = readHolder();
       if (!h) return null;
-      return { pid: h.pid, startedAt: h.startedAt, hostname: h.hostname, alive: held || holderAlive(h) };
+      const stale = held ? null : staleReason(h);
+      return { pid: h.pid, startedAt: h.startedAt, hostname: h.hostname, alive: !stale, ...(stale ? { stale } : {}) };
     },
 
     /**
