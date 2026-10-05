@@ -4,10 +4,17 @@ All notable changes to this project are documented here. The format follows [Kee
 
 ## [Unreleased]
 
+## [0.1.1] - 2026-10-05
+
 ### Fixed
 
 - `status` no longer reports a dead gateway as running after a container restart or a reboot. The lock file now records when its process started (on Linux from `/proc`, on macOS and BSD from `ps`), so a pid that was handed to a different process — the old gateway's pid 1 or 7 in a restarted container, any pid after a reboot — is recognized: `status` says `not running (stale lock file: pid N is now a different process)` and leaves the file for `run` to take over. The same check stops `run` from refusing to start (exit 6) behind such a lock, and `init` and `doctor` from calling the gateway running. A lock written by 0.1.0, or on Windows, keeps the previous pid-only check.
 - `status` right after a restart no longer shows the previous run's uptime, version and connection as the new process's: until the new process writes its first snapshot it says `running (pid N, starting up)` and marks the values as the last run's. `status --json` adds `runtimeCurrent` and `staleLock`.
+
+### Changed
+
+- Release workflow: publishing the container image now needs the same `release` environment approval as publishing to npm.
+- Dependencies: `systeminformation` 5.33.14.
 
 ## [0.1.0] - 2026-09-28
 
